@@ -11,10 +11,7 @@ on:
 
 jobs:
   build_and_deploy_job:
-    # Logic: Only run if it's a push/active PR AND the deployment secret is actually present
-    if: |
-      (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')) &&
-      secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ICY_TREE_0C448531E != ''
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
     name: Build and Deploy Job
     permissions:
@@ -52,8 +49,7 @@ jobs:
           ###### End of Repository/Build Configurations ######
 
   close_pull_request_job:
-    # Only run when a PR is closed, and the secret is available to perform the cleanup
-    if: github.event_name == 'pull_request' && github.event.action == 'closed' && secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ICY_TREE_0C448531E != ''
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
     name: Close Pull Request Job
     steps:
