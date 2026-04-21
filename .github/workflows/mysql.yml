@@ -17,7 +17,7 @@ jobs:
               subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           - uses: azure/mysql@v1
             with:
-              server-name: MYSQL_SERVER_NAME
+              server-name: BoxOfficeOnline
               connection-string: ${{ secrets.AZURE_MYSQL_CONNECTION_STRING }}
               sql-file: './data.sql'
 
