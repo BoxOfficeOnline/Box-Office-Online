@@ -29,7 +29,7 @@ jobs:
     - uses: azure/mysql@v1
       with:
         server-name: box-office-online
-        username: admin@box-office-online
+        username: admin
         password: ${{ secrets.AZURE_MYSQL_PASSWORD }}
         database: box-office-online
         sql-file: './data.sql'
