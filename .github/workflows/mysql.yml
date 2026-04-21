@@ -1,4 +1,7 @@
 name: MySQL for GitHub Actions
+permissions:
+  id-token: write  # Required for OIDC authentication
+  contents: read   # Required for actions/checkout
 
 on:
   push:
