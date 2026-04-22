@@ -44,7 +44,7 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ICY_TREE_0C448531E }}
           action: "upload"
           ###### Repository/Build Configurations ######
-          app_location: "/" # If your package.json is in the root, use "/"
+          app_location: "/.Client" # If your package.json is in the root, use "/"
           output_location: "dist" # Vite builds to 'dist'
           app_build_command: "npm run build"
           github_id_token: ${{ steps.idtoken.outputs.result }}
