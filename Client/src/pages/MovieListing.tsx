@@ -14,7 +14,6 @@ export default function MovieListing() {
 
         setLoading(true);
         try {
-            // HARDCODED: This forces the browser to talk to Render, not Azure
             const response = await fetch('https://box-office-online.onrender.com/api/purchase', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
