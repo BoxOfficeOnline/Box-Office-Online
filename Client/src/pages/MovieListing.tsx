@@ -2,11 +2,6 @@ import type { SyntheticEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
-// FORCE the Render URL for production to bypass Azure /api hijacking
-const API_BASE = import.meta.env.PROD 
-    ? 'https://box-office-online.onrender.com' 
-    : '';
-
 export default function MovieListing() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
@@ -19,12 +14,10 @@ export default function MovieListing() {
 
         setLoading(true);
         try {
-            // Using the full URL ensures the request goes to Render, not Azure
-            const response = await fetch(`${API_BASE}/api/purchase`, {
+            // HARDCODED: This forces the browser to talk to Render, not Azure
+            const response = await fetch('https://box-office-online.onrender.com/api/purchase', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     customerName,
                     ticketTotal: parseInt(ticketTotal)
@@ -35,12 +28,11 @@ export default function MovieListing() {
                 const data = await response.json();
                 navigate(`/purchase/${data.ticketId}`);
             } else {
-                // If it still says 405, Azure is still intercepting the relative part of the path
-                alert('Purchase failed - Method Not Allowed');
+                alert('Purchase failed - API rejected the request');
             }
         } catch (error) {
             console.error('Purchase error:', error);
-            alert('Purchase failed - Connection Error');
+            alert('Purchase failed - Network Error');
         } finally {
             setLoading(false);
         }
@@ -48,15 +40,11 @@ export default function MovieListing() {
 
     return(
         <form className="movie-form" onSubmit={handleSubmit}>
-            <label>
-                Name: <input name="customerName" required />
-            </label>
-            <label>
-                Ticket Total: <input name="ticketTotal" defaultValue="1" required />
-            </label>
+            <label>Name: <input name="customerName" required /></label>
+            <label>Ticket Total: <input name="ticketTotal" defaultValue="1" required /></label>
             <button type="submit" disabled={loading}>
                 {loading ? 'Purchasing...' : 'Purchase'}
             </button>
         </form>
-    )
+    );
 }
