@@ -46,12 +46,13 @@ jobs:
           ###### Repository/Build Configurations ######
           app_location: "/" # If your package.json is in the root, use "/"
           output_location: "dist" # Vite builds to 'dist'
+          app_build_command: "npm run build"
           github_id_token: ${{ steps.idtoken.outputs.result }}
-          ###### End of Repository/Build Configurations ######
+          ###### End of Repository/Build Configurations ###### 
         env:
           # This bakes the Render URL into your code during the build
           VITE_API_URL: https://box-office-online.onrender.com
-          
+
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
