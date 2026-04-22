@@ -69,3 +69,7 @@ app.post('/api/purchase', async (req, res) => {
 app.listen(PORT, () => {
     console.log('Server is running!');
 });
+
+app.get('/', (req, res) => {
+    res.status(200).send('Box Office Online API is Live and Connected!');
+});
