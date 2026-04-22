@@ -1,9 +1,13 @@
 {
+  "routes": [
+    {
+      "route": "/api/*",
+      "methods": ["GET", "POST", "OPTIONS"],
+      "rewrite": "https://box-office-online.onrender.com/api/:wildcard"
+    }
+  ],
   "mimeTypes": {
     ".js": "application/javascript",
-    ".mjs": "application/javascript",
-    ".jsx": "application/javascript",
-    ".tsx": "application/javascript",
-    ".ts": "application/javascript"
+    ".mjs": "application/javascript"
   }
 }
