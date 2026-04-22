@@ -2,10 +2,13 @@ import type { SyntheticEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
+// Use the full Render URL in production, empty string (proxy) in dev
+const API_BASE = import.meta.env.PROD 
+    ? 'https://box-office-online.onrender.com' 
+    : '';
+
 export default function MovieListing() {
     const navigate = useNavigate();
-    const [customerName, setCustomerName] = useState("");
-    const [ticketTotal, setTicketTotal] = useState("");
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
@@ -16,7 +19,8 @@ export default function MovieListing() {
 
         setLoading(true);
         try {
-            const response = await fetch('/api/purchase', {
+            // Updated to use API_BASE
+            const response = await fetch(`${API_BASE}/api/purchase`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -42,7 +46,6 @@ export default function MovieListing() {
     };
 
     return(
-        <>
         <form className="movie-form" method="post" onSubmit={handleSubmit}>
             <label>
                 Name: <input name="customerName"/>
@@ -54,6 +57,5 @@ export default function MovieListing() {
                 {loading ? 'Purchasing...' : 'Purchase'}
             </button>
         </form>
-        </>
     )
 }

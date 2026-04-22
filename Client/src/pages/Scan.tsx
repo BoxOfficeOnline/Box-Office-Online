@@ -1,8 +1,11 @@
 import type { SyntheticEvent } from "react";
 import { useState } from "react";
 
+const API_BASE = import.meta.env.PROD 
+    ? 'https://box-office-online.onrender.com' 
+    : '';
+
 export default function Scan() {
-    const [ticketNumber, setTicketNumber] = useState("");
     const [submitted, setSubmitted] = useState(false);
     const [isValid, setIsValid] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -11,11 +14,11 @@ export default function Scan() {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
         const ticketNumber = formData.get("ticketNumber") as string;
-        setTicketNumber(ticketNumber);
         setLoading(true);
 
         try {
-            const response = await fetch('/api/validate', {
+            // Updated to use API_BASE
+            const response = await fetch(`${API_BASE}/api/validate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -39,15 +42,12 @@ export default function Scan() {
     };
 
     if (submitted) {
-        if (isValid) {
-            return <div className="valid">Valid Ticket!</div>;
-        } else {
-            return <div className="invalid">Invalid Ticket</div>;
-        }
+        return isValid 
+            ? <div className="valid">Valid Ticket!</div> 
+            : <div className="invalid">Invalid Ticket</div>;
     }
 
     return (
-        <>
         <form className="movie-form" method="post" onSubmit={handleSubmit}>
             <label>
                 Ticket Number: <input name="ticketNumber" />
@@ -56,7 +56,5 @@ export default function Scan() {
                 {loading ? 'Validating...' : 'Validate'}
             </button>
         </form>
-        </>
     );
-}   
-        
+}
