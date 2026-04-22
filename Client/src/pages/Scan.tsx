@@ -17,7 +17,6 @@ export default function Scan() {
         setLoading(true);
 
         try {
-            // Updated to use API_BASE
             const response = await fetch(`${API_BASE}/api/validate`, {
                 method: 'POST',
                 headers: {
@@ -48,9 +47,9 @@ export default function Scan() {
     }
 
     return (
-        <form className="movie-form" method="post" onSubmit={handleSubmit}>
+        <form className="movie-form" onSubmit={handleSubmit}>
             <label>
-                Ticket Number: <input name="ticketNumber" />
+                Ticket Number: <input name="ticketNumber" required />
             </label>
             <button type="submit" disabled={loading}>
                 {loading ? 'Validating...' : 'Validate'}

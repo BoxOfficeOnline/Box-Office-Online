@@ -13,6 +13,13 @@ dotenv.config();
 app.use(cors());
 app.use(express.json());
 
+app.use(cors({
+  origin: 'https://icy-tree-0c448531e.6.azurestaticapps.net',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type'],
+  credentials: true
+}));
+
 app.get('/', (req, res) => {
     res.status(200).send('Box Office Online API is Live and Connected!');
 });

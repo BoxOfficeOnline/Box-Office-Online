@@ -2,7 +2,7 @@ import type { SyntheticEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
-// Use the full Render URL in production, empty string (proxy) in dev
+// FORCE the Render URL for production to bypass Azure /api hijacking
 const API_BASE = import.meta.env.PROD 
     ? 'https://box-office-online.onrender.com' 
     : '';
@@ -19,7 +19,7 @@ export default function MovieListing() {
 
         setLoading(true);
         try {
-            // Updated to use API_BASE
+            // Using the full URL ensures the request goes to Render, not Azure
             const response = await fetch(`${API_BASE}/api/purchase`, {
                 method: 'POST',
                 headers: {
@@ -35,23 +35,24 @@ export default function MovieListing() {
                 const data = await response.json();
                 navigate(`/purchase/${data.ticketId}`);
             } else {
-                alert('Purchase failed');
+                // If it still says 405, Azure is still intercepting the relative part of the path
+                alert('Purchase failed - Method Not Allowed');
             }
         } catch (error) {
             console.error('Purchase error:', error);
-            alert('Purchase failed');
+            alert('Purchase failed - Connection Error');
         } finally {
             setLoading(false);
         }
     };
 
     return(
-        <form className="movie-form" method="post" onSubmit={handleSubmit}>
+        <form className="movie-form" onSubmit={handleSubmit}>
             <label>
-                Name: <input name="customerName"/>
+                Name: <input name="customerName" required />
             </label>
             <label>
-                Ticket Total: <input name="ticketTotal" defaultValue="1"/>
+                Ticket Total: <input name="ticketTotal" defaultValue="1" required />
             </label>
             <button type="submit" disabled={loading}>
                 {loading ? 'Purchasing...' : 'Purchase'}
