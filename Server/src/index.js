@@ -9,6 +9,11 @@ const PORT = process.env.PORT || 5000;
 dotenv.config();
 app.use(cors());
 app.use(express.json());
+
+app.get('/', (req, res) => {
+    res.status(200).send('Box Office Online API is Live and Connected!');
+});
+
 // MySQL connection
 const dbConfig = {
     host: process.env.DB_HOST || 'box-office-online.mysql.database.azure.com',
@@ -68,8 +73,4 @@ app.post('/api/purchase', async (req, res) => {
 });
 app.listen(PORT, () => {
     console.log('Server is running!');
-});
-
-app.get('/', (req, res) => {
-    res.status(200).send('Box Office Online API is Live and Connected!');
 });
