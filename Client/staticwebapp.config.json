@@ -1,13 +1,12 @@
 {
+  "navigationFallback": {
+    "rewrite": "/index.html"
+  },
   "routes": [
     {
       "route": "/api/*",
-      "methods": ["GET", "POST", "OPTIONS"],
+      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "rewrite": "https://box-office-online.onrender.com/api/:wildcard"
     }
-  ],
-  "mimeTypes": {
-    ".js": "application/javascript",
-    ".mjs": "application/javascript"
-  }
+  ]
 }
