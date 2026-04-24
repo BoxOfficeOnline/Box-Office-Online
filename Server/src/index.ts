@@ -56,7 +56,7 @@ app.get('/api/barcode', async (req, res) => {
     {
         text = '12345',         // The actual data we are encoding
         type = 'code128',       // Barcode type
-        scale = 3,              // Scales the size of the barcode
+        scale = 2,              // Scales the size of the barcode
         height = 10,            // Height in mm
         includetext = 'yes',    // Shows the text below the bars
         textalign = 'center'
@@ -93,7 +93,7 @@ app.post('/api/purchase', async (req, res) => {
         // Get the next ticket ID
         const [rows] = await connection.execute('SELECT COALESCE(MAX(CAST(ticket_id AS UNSIGNED)), 0) as max_id FROM tickets');
         const maxId = (rows as any)[0].max_id;
-        const ticketId = crypto.randomBytes(16);
+        const ticketId = crypto.randomUUID();
 
         await connection.execute(
             'INSERT INTO tickets (ticket_id, movie_id, showing_id, customer_first_name, customer_last_name, customer_email_name, purchase_time, ticket_amount) VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)',
