@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node dist/index.js",
+    "start": "ts-node src/index.ts",
     "build": "tsc",
     "dev": "nodemon --exec ts-node src/index.ts",
     "dev-all": "concurrently \"npm run dev\" \"cd ../Client && npm run dev\""
@@ -19,7 +19,9 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "mysql2": "^3.22.2"
+    "mysql2": "^3.22.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
   },
   "devDependencies": {
     "@types/bwip-js": "^3.2.3",
@@ -27,8 +29,6 @@
     "@types/express": "^5.0.6",
     "@types/node": "^25.6.0",
     "concurrently": "^9.2.1",
-    "nodemon": "^3.1.14",
-    "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "nodemon": "^3.1.14"
   }
 }

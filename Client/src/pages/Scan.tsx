@@ -2,7 +2,6 @@ import type { SyntheticEvent } from "react";
 import { useState } from "react";
 
 export default function Scan() {
-    const [ticketNumber, setTicketNumber] = useState("");
     const [submitted, setSubmitted] = useState(false);
     const [isValid, setIsValid] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -11,11 +10,11 @@ export default function Scan() {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
         const ticketNumber = formData.get("ticketNumber") as string;
-        setTicketNumber(ticketNumber);
+        
         setLoading(true);
 
         try {
-            const response = await fetch('/api/validate', {
+            const response = await fetch('https://box-office-online.onrender.com/api/validate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -27,6 +26,8 @@ export default function Scan() {
                 const data = await response.json();
                 setIsValid(data.isValid);
             } else {
+                // If this alert shows, the request reached Render but failed there
+                console.error("Server responded with error:", response.status);
                 setIsValid(false);
             }
         } catch (error) {
@@ -39,24 +40,25 @@ export default function Scan() {
     };
 
     if (submitted) {
-        if (isValid) {
-            return <div className="valid">Valid Ticket!</div>;
-        } else {
-            return <div className="invalid">Invalid Ticket</div>;
-        }
+        return (
+            <div className="scan-result">
+                {isValid 
+                    ? <div className="valid"> Valid Ticket!</div> 
+                    : <div className="invalid">Invalid Ticket</div>
+                }
+                <button onClick={() => setSubmitted(false)}>Scan Another</button>
+            </div>
+        );
     }
 
     return (
-        <>
-        <form className="movie-form" method="post" onSubmit={handleSubmit}>
+        <form className="movie-form" onSubmit={handleSubmit}>
             <label>
-                Ticket Number: <input name="ticketNumber" />
+                Ticket Number: <input name="ticketNumber" required />
             </label>
             <button type="submit" disabled={loading}>
                 {loading ? 'Validating...' : 'Validate'}
             </button>
         </form>
-        </>
     );
-}   
-        
+}
