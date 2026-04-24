@@ -93,7 +93,7 @@ app.post('/api/purchase', async (req, res) => {
         // Get the next ticket ID
         const [rows] = await connection.execute('SELECT COALESCE(MAX(CAST(ticket_id AS UNSIGNED)), 0) as max_id FROM tickets');
         const maxId = (rows as any)[0].max_id;
-        const ticketId = crypto.randomBytes(8).toString('hex');
+        const ticketId = crypto.randomBytes(4).toString('hex');
 
         await connection.execute(
             'INSERT INTO tickets (ticket_id, movie_id, showing_id, customer_first_name, customer_last_name, customer_email_name, purchase_time, ticket_amount) VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)',
