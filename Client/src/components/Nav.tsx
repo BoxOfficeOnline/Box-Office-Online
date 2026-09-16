@@ -16,6 +16,11 @@ function Nav() {
                     Scan Tickets
                 </Link>
             </div>
+            <div style={{ display: 'flex', marginLeft: 'auto' }}>
+                <Link to="/login">
+                    Log In
+                </Link>
+            </div>
         </nav>
     )
 }

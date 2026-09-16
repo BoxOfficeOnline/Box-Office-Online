@@ -14,20 +14,22 @@ export default function Scan() {
 
     if (submitted) {
         if (ticketNumber === "1") {
-            return<div className="valid">Valid Ticket!</div>
+            return<div className="valid"></div>
         } else {
-            return<div className="invalid">Invalid Ticket</div>
+            return<div className="invalid">Account Email or Password invalid.</div>
         }
     }
     return(   
         <>
         <form className="movie-form" method="post" onSubmit={handleSubmit}>
             <label>
-                Ticket Number: <input name="ticketNumber"/>
+                Email: <input name="email"/>
             </label>
-            <button type="submit">Validate</button>
+            <label>
+                Password: <input name="password" type="password"/>
+            </label>
+            <button type="submit">Login</button>
         </form>
         </>
     )
-}   
-        
+} 
