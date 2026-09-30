@@ -21,7 +21,7 @@ export default function Scan() {
     }
     return(   
         <>
-        <form className="movie-form" method="post" onSubmit={handleSubmit}>
+        <form className="form" method="post" onSubmit={handleSubmit}>
             <label>
                 Email: <input name="email"/>
             </label>

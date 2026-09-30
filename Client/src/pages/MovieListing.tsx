@@ -16,7 +16,7 @@ export default function MovieListing() {
 
     return(
         <>
-        <form className="movie-form" method="post" onSubmit={handleSubmit}>
+        <form className="form" method="post" onSubmit={handleSubmit}>
             <label>
                 Name: <input name="customerName"/>
             </label>

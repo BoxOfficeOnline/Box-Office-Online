@@ -20,6 +20,9 @@ function Nav() {
                 <Link to="/login">
                     Log In
                 </Link>
+                <Link to="/createAccount">
+                    Create Account
+                </Link>
             </div>
         </nav>
     )
