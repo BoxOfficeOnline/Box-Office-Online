@@ -64,12 +64,17 @@ app.get('/api/barcode', async (req, res) => {
 });
 // Purchase endpoint
 app.post('/api/purchase', async (req, res) => {
-    const { userId, ticketTotal } = req.body;
-    if (!userId || !ticketTotal) {
-        return res.status(400).json({ error: 'User ID and ticket total are required' });
+    const { firstName, lastName, ticketTotal } = req.body;
+    if (!firstName || !lastName || !ticketTotal) {
+        return res.status(400).json({ error: 'First name, last name and ticket total are required' });
     }
     const ticketId = crypto.randomUUID();
     try {
+        const [users] = await db.execute('SELECT users_id FROM users WHERE first_name = ? AND last_name = ? LIMIT 1', [firstName, lastName]);
+        if (users.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const userId = users[0].users_id;
         await db.execute('INSERT INTO tickets (ticket_id, movie_id, showing_id, user_id, purchase_time, ticket_amount) VALUES (?, ?, ?, ?, NOW(), ?)', [ticketId, 1, 1, userId, ticketTotal]);
         res.json({ ticketId, message: 'Purchase successful' });
     }

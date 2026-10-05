@@ -79,17 +79,26 @@ app.get('/api/barcode', async (req, res) => {
 
 // Purchase endpoint
 app.post('/api/purchase', async (req, res) => {
-    const { userId, ticketTotal } = req.body;
+    const { firstName, lastName, ticketTotal } = req.body;
 
-    if (!userId || !ticketTotal) {
-        return res.status(400).json({ error: 'User ID and ticket total are required' });
+    if (!firstName || !lastName || !ticketTotal) {
+        return res.status(400).json({ error: 'First name, last name and ticket total are required' });
     }
 
     let connection;
 
     try {
         connection = await pool.getConnection();
-        
+
+        const [users] = await connection.execute(
+            'SELECT users_id FROM users WHERE first_name = ? AND last_name = ? LIMIT 1',
+            [firstName, lastName]
+        );
+        if ((users as any[]).length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const userId = (users as any[])[0].users_id;
+
         // Get the next ticket ID
         const [rows] = await connection.execute('SELECT COALESCE(MAX(CAST(ticket_id AS UNSIGNED)), 0) as max_id FROM tickets');
         const maxId = (rows as any)[0].max_id;
