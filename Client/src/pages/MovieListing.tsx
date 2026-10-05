@@ -9,7 +9,7 @@ export default function MovieListing() {
     const handleSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
-        const customerName = formData.get("customerName") as string;
+        const userId = parseInt(formData.get("userId") as string);
         const ticketTotal = formData.get("ticketTotal") as string;
 
         setLoading(true);
@@ -18,7 +18,7 @@ export default function MovieListing() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    customerName,
+                    userId,
                     ticketTotal: parseInt(ticketTotal)
                 }),
             });
@@ -39,7 +39,7 @@ export default function MovieListing() {
 
     return(
         <form className="movie-form" onSubmit={handleSubmit}>
-            <label>Name: <input name="customerName" required /></label>
+            <label>User ID: <input name="userId" type="number" required /></label>
             <label>Ticket Total: <input name="ticketTotal" defaultValue="1" required /></label>
             <button type="submit" disabled={loading}>
                 {loading ? 'Purchasing...' : 'Purchase'}

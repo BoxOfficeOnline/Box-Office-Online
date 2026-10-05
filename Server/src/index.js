@@ -64,13 +64,13 @@ app.get('/api/barcode', async (req, res) => {
 });
 // Purchase endpoint
 app.post('/api/purchase', async (req, res) => {
-    const { customerName, ticketTotal } = req.body;
-    if (!customerName || !ticketTotal) {
-        return res.status(400).json({ error: 'Customer name and ticket total are required' });
+    const { userId, ticketTotal } = req.body;
+    if (!userId || !ticketTotal) {
+        return res.status(400).json({ error: 'User ID and ticket total are required' });
     }
     const ticketId = crypto.randomUUID();
     try {
-        await db.execute('INSERT INTO tickets (ticket_id, movie_id, showing_id, customer_first_name, customer_last_name, customer_email_name, purchase_time, ticket_amount) VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)', [ticketId, 1, 1, customerName, '', '', ticketTotal]);
+        await db.execute('INSERT INTO tickets (ticket_id, movie_id, showing_id, user_id, purchase_time, ticket_amount) VALUES (?, ?, ?, ?, NOW(), ?)', [ticketId, 1, 1, userId, ticketTotal]);
         res.json({ ticketId, message: 'Purchase successful' });
     }
     catch (error) {
