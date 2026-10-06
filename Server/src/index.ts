@@ -94,10 +94,17 @@ app.post('/api/purchase', async (req, res) => {
             'SELECT users_id FROM users WHERE first_name = ? AND last_name = ? LIMIT 1',
             [firstName, lastName]
         );
+        let userId: number;
         if ((users as any[]).length === 0) {
-            return res.status(404).json({ error: 'User not found' });
+            // No matching user yet, so create one for this ticket
+            const [result] = await connection.execute(
+                'INSERT INTO users (first_name, last_name) VALUES (?, ?)',
+                [firstName, lastName]
+            );
+            userId = (result as any).insertId;
+        } else {
+            userId = (users as any[])[0].users_id;
         }
-        const userId = (users as any[])[0].users_id;
 
         // Get the next ticket ID
         const [rows] = await connection.execute('SELECT COALESCE(MAX(CAST(ticket_id AS UNSIGNED)), 0) as max_id FROM tickets');
