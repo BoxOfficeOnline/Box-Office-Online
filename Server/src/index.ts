@@ -97,11 +97,13 @@ app.post('/api/purchase', async (req, res) => {
         let userId: number;
         if ((users as any[]).length === 0) {
             // No matching user yet, so create one for this ticket
-            const [result] = await connection.execute(
-                'INSERT INTO users (first_name, last_name) VALUES (?, ?)',
-                [firstName, lastName]
+            // users_id is not auto-increment, so assign the next one
+            const [maxRows] = await connection.execute('SELECT COALESCE(MAX(users_id), 0) + 1 AS next_id FROM users');
+            userId = Number((maxRows as any[])[0].next_id);
+            await connection.execute(
+                'INSERT INTO users (users_id, first_name, last_name, email_address, password, employee_permission, admin_permission) VALUES (?, ?, ?, \'\', \'\', 0, 0)',
+                [userId, firstName, lastName]
             );
-            userId = (result as any).insertId;
         } else {
             userId = (users as any[])[0].users_id;
         }
