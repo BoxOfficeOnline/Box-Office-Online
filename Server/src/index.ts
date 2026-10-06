@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use(cors({
-  origin: 'https://icy-tree-0c448531e.6.azurestaticapps.net',
+  origin: 'https://kind-cliff-08e0f151e.1.azurestaticapps.net',
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
   credentials: true
