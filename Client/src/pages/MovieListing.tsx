@@ -38,6 +38,15 @@ export default function MovieListing() {
     };
 
     return(
+        <>
+        <form className="form" method="post" onSubmit={handleSubmit}>
+            <label>
+                Name: <input name="customerName"/>
+            </label>
+            <label>
+                Ticket Total: <input name="ticketTotal" defaultValue="1"/>
+            </label>
+            <button type="submit">Purchase</button>
         <form className="movie-form" onSubmit={handleSubmit}>
             <label>Name: <input name="customerName" required /></label>
             <label>Ticket Total: <input name="ticketTotal" defaultValue="1" required /></label>

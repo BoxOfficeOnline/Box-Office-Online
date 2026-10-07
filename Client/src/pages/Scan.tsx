@@ -50,12 +50,16 @@ export default function Scan() {
             </div>
         );
     }
+    return(   
+        <>
+        <form className="form" method="post" onSubmit={handleSubmit}>
 
     return (
         <form className="movie-form" onSubmit={handleSubmit}>
             <label>
                 Ticket Number: <input name="ticketNumber" required />
             </label>
+            <button type="submit">Validate</button>
             <button type="submit" disabled={loading}>
                 {loading ? 'Validating...' : 'Validate'}
             </button>
