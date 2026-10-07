@@ -20,13 +20,14 @@ const Tls = require('tls');
 const Timers = require('timers');
 const EventEmitter = require('events').EventEmitter;
 const Readable = require('stream').Readable;
-const Queue = require('denque');
+const Queue = require('../ring_queue.js');
 const SqlString = require('sql-escaper');
 const { createLRU } = require('lru.min');
 const PacketParser = require('../packet_parser.js');
 const Packets = require('../packets/index.js');
 const Commands = require('../commands/index.js');
 const ConnectionConfig = require('../connection_config.js');
+const TlsSessionSlot = require('../tls_session_cache.js');
 const CharsetToEncoding = require('../constants/charset_encodings.js');
 const {
   traceCallback,
@@ -41,6 +42,49 @@ const {
 let _connectionId = 0;
 
 let convertNamedPlaceholders = null;
+
+// Building a secure context parses every certificate in the ssl config
+// (the bundled AWS profile alone carries over a hundred), which costs
+// milliseconds per connection. The context is immutable once built, so
+// pooled connections sharing one ssl config object share the context, as
+// long as none of the material it was built from has been replaced.
+const secureContexts = new WeakMap();
+
+function getSecureContext(ssl) {
+  const cached = secureContexts.get(ssl);
+  if (
+    cached !== undefined &&
+    cached.ca === ssl.ca &&
+    cached.cert === ssl.cert &&
+    cached.ciphers === ssl.ciphers &&
+    cached.key === ssl.key &&
+    cached.passphrase === ssl.passphrase &&
+    cached.minVersion === ssl.minVersion &&
+    cached.maxVersion === ssl.maxVersion
+  ) {
+    return cached.secureContext;
+  }
+  const secureContext = Tls.createSecureContext({
+    ca: ssl.ca,
+    cert: ssl.cert,
+    ciphers: ssl.ciphers,
+    key: ssl.key,
+    passphrase: ssl.passphrase,
+    minVersion: ssl.minVersion,
+    maxVersion: ssl.maxVersion,
+  });
+  secureContexts.set(ssl, {
+    secureContext,
+    ca: ssl.ca,
+    cert: ssl.cert,
+    ciphers: ssl.ciphers,
+    key: ssl.key,
+    passphrase: ssl.passphrase,
+    minVersion: ssl.minVersion,
+    maxVersion: ssl.maxVersion,
+  });
+  return secureContext;
+}
 
 class BaseConnection extends EventEmitter {
   constructor(opts) {
@@ -87,6 +131,8 @@ class BaseConnection extends EventEmitter {
       },
     });
     this.serverCapabilityFlags = 0;
+    this._isMariaDB = false;
+    this._mariadbExtendedMetadata = false;
     this.authorized = false;
     this.sequenceId = 0;
     this.compressedSequenceId = 0;
@@ -102,7 +148,8 @@ class BaseConnection extends EventEmitter {
       this.handlePacket(p);
     });
     this.stream.on('data', (data) => {
-      if (this.connectTimeout) {
+      // Server-side connections do not run ClientHandshake.
+      if (this.connectTimeout && this.config.isServer) {
         Timers.clearTimeout(this.connectTimeout);
         this.connectTimeout = null;
       }
@@ -131,6 +178,10 @@ class BaseConnection extends EventEmitter {
     if (!this.config.isServer) {
       handshakeCommand = new Commands.ClientHandshake(this.config.clientFlags);
       handshakeCommand.on('end', () => {
+        if (this.connectTimeout) {
+          Timers.clearTimeout(this.connectTimeout);
+          this.connectTimeout = null;
+        }
         // this happens when handshake finishes early either because there was
         // some fatal error or the server sent an error packet instead of
         // an hello packet (for example, 'Too many connections' error)
@@ -158,7 +209,6 @@ class BaseConnection extends EventEmitter {
           connectChannel,
           () =>
             new Promise((resolve, reject) => {
-              /* eslint-disable prefer-const */
               let onConnect, onError;
               onConnect = (param) => {
                 this.removeListener('error', onError);
@@ -168,7 +218,6 @@ class BaseConnection extends EventEmitter {
                 this.removeListener('connect', onConnect);
                 reject(err);
               };
-              /* eslint-enable prefer-const */
               this.once('connect', onConnect);
               this.once('error', onError);
             }),
@@ -186,7 +235,7 @@ class BaseConnection extends EventEmitter {
         });
       }
     }
-    // in case there was no initial handshake but we need to read sting, assume it utf-8
+    // in case there was no initial handshake but we need to read string, assume it utf-8
     // most common example: "Too many connections" error ( packet is sent immediately on connection attempt, we don't know server encoding yet)
     // will be overwritten with actual encoding value as soon as server handshake packet is received
     this.serverEncoding = 'utf8';
@@ -269,13 +318,11 @@ class BaseConnection extends EventEmitter {
       // connection handshake is special because we allow it to be implicit
       // if error happened during handshake, but there are others commands in queue
       // then bubble error to other commands and not to connection
-    } else if (
-      !(
-        this._command &&
-        this._command.constructor === Commands.ClientHandshake &&
-        this._commands.length > 0
-      )
-    ) {
+    } else if (!(
+      this._command &&
+      this._command.constructor === Commands.ClientHandshake &&
+      this._commands.length > 0
+    )) {
       bubbleErrorToConnection = true;
     }
     while ((command = this._commands.shift())) {
@@ -285,7 +332,7 @@ class BaseConnection extends EventEmitter {
         bubbleErrorToConnection = true;
       }
     }
-    // notify connection if some comands in the queue did not have callbacks
+    // notify connection if some commands in the queue did not have callbacks
     // or if this is pool connection ( so it can be removed from pool )
     if (bubbleErrorToConnection || this._pool) {
       this.emit('error', err);
@@ -378,22 +425,23 @@ class BaseConnection extends EventEmitter {
     if (this.config.debug) {
       console.log('Upgrading connection to TLS');
     }
-    const secureContext = Tls.createSecureContext({
-      ca: this.config.ssl.ca,
-      cert: this.config.ssl.cert,
-      ciphers: this.config.ssl.ciphers,
-      key: this.config.ssl.key,
-      passphrase: this.config.ssl.passphrase,
-      minVersion: this.config.ssl.minVersion,
-      maxVersion: this.config.ssl.maxVersion,
-    });
+    const secureContext = getSecureContext(this.config.ssl);
     const rejectUnauthorized = this.config.ssl.rejectUnauthorized;
     const verifyIdentity = this.config.ssl.verifyIdentity;
     const servername = Net.isIP(this.config.host)
       ? undefined
       : this.config.host;
 
+    const sessionSlot = new TlsSessionSlot(
+      this.config.ssl,
+      this.config.host,
+      this.config.port,
+      rejectUnauthorized,
+      verifyIdentity
+    );
     let secureEstablished = false;
+    let peerAccepted = false;
+    let issuedSession = null;
     this.stream.removeAllListeners('data');
     const secureSocket = Tls.connect(
       {
@@ -405,13 +453,14 @@ class BaseConnection extends EventEmitter {
               return undefined;
             },
         secureContext,
+        session: sessionSlot.get(),
         isServer: false,
         socket: this.stream,
         servername,
       },
       () => {
         secureEstablished = true;
-        if (rejectUnauthorized) {
+        if (rejectUnauthorized && !secureSocket.isSessionReused()) {
           if (typeof servername === 'string' && verifyIdentity) {
             const cert = secureSocket.getPeerCertificate(true);
             const serverIdentityCheckError = Tls.checkServerIdentity(
@@ -419,19 +468,32 @@ class BaseConnection extends EventEmitter {
               cert
             );
             if (serverIdentityCheckError) {
+              sessionSlot.delete();
               onSecure(serverIdentityCheckError);
               return;
             }
           }
         }
+        peerAccepted = true;
+        if (issuedSession !== null) {
+          sessionSlot.set(issuedSession);
+        }
         onSecure();
       }
     );
+    secureSocket.on('session', (session) => {
+      if (peerAccepted) {
+        sessionSlot.set(session);
+      } else {
+        issuedSession = session;
+      }
+    });
     // error handler for secure socket
     secureSocket.on('error', (err) => {
       if (secureEstablished) {
         this._handleNetworkError(err);
       } else {
+        sessionSlot.delete();
         onSecure(err);
       }
     });
@@ -493,7 +555,9 @@ class BaseConnection extends EventEmitter {
 
   handlePacket(packet) {
     if (this._paused) {
-      this._paused_packets.push(packet);
+      // the parser reuses its packet instance; keep a stable copy when
+      // queueing for later
+      this._paused_packets.push(packet ? packet.clone() : packet);
       return;
     }
     if (this.config.debug) {
@@ -581,7 +645,7 @@ class BaseConnection extends EventEmitter {
     return cmd;
   }
 
-  format(sql, values) {
+  format(sql, values, namedPlaceholders) {
     if (typeof this.config.queryFormat === 'function') {
       return this.config.queryFormat.call(
         this,
@@ -594,6 +658,9 @@ class BaseConnection extends EventEmitter {
       sql: sql,
       values: values,
     };
+    if (typeof namedPlaceholders !== 'undefined') {
+      opts.namedPlaceholders = namedPlaceholders;
+    }
     this._resolveNamedPlaceholders(opts);
     return SqlString.format(
       opts.sql,
@@ -617,7 +684,10 @@ class BaseConnection extends EventEmitter {
 
   _resolveNamedPlaceholders(options) {
     let unnamed;
-    if (this.config.namedPlaceholders || options.namedPlaceholders) {
+    if (typeof options.namedPlaceholders === 'undefined') {
+      options.namedPlaceholders = this.config.namedPlaceholders;
+    }
+    if (options.namedPlaceholders) {
       if (Array.isArray(options.values)) {
         // if an array is provided as the values, assume the conversion is not necessary.
         // this allows the usage of unnamed placeholders even if the namedPlaceholders flag is enabled.
@@ -642,7 +712,8 @@ class BaseConnection extends EventEmitter {
     this._resolveNamedPlaceholders(cmdQuery);
     const rawSql = this.format(
       cmdQuery.sql,
-      cmdQuery.values !== undefined ? cmdQuery.values : []
+      cmdQuery.values !== undefined ? cmdQuery.values : [],
+      cmdQuery.namedPlaceholders
     );
     cmdQuery.sql = rawSql;
 
@@ -995,7 +1066,6 @@ class BaseConnection extends EventEmitter {
       return cb(null, this);
     }
 
-    /* eslint-disable prefer-const */
     let onError, onConnect;
 
     onError = (param) => {
@@ -1007,7 +1077,6 @@ class BaseConnection extends EventEmitter {
       this.removeListener('error', onError);
       cb(null, param);
     };
-    /* eslint-enable prefer-const */
 
     this.once('error', onError);
     this.once('connect', onConnect);

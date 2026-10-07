@@ -2,6 +2,13 @@
 
 const Types = require('../constants/types');
 const Packet = require('../packets/packet');
+const StringParser = require('../parsers/string.js');
+const {
+  TypedParameter,
+  encodeTypedParameter,
+  integerHint,
+} = require('./typed_parameter.js');
+const FieldFlags = require('../constants/field_flags.js');
 
 function isJSON(value) {
   return (
@@ -11,13 +18,23 @@ function isJSON(value) {
   );
 }
 
-function toParameter(value, encoding, timezone) {
+function toParameter(value, encoding, timezone, jsonAsString, hint) {
+  if (value instanceof TypedParameter) {
+    return encodeTypedParameter(value, encoding, timezone, jsonAsString);
+  }
+  if (hint) {
+    const hinted = integerHint(
+      value,
+      hint.columnType,
+      Boolean(hint.flags & FieldFlags.UNSIGNED)
+    );
+    if (hinted) {
+      return encodeTypedParameter(hinted, encoding, timezone, jsonAsString);
+    }
+  }
   let type = Types.VAR_STRING;
   let length;
-  let writer = function (value) {
-    // eslint-disable-next-line no-invalid-this
-    return Packet.prototype.writeLengthCodedString.call(this, value, encoding);
-  };
+  let writer = Packet.prototype.writeLengthCodedBuffer;
   if (value !== null) {
     switch (typeof value) {
       case 'undefined':
@@ -41,13 +58,22 @@ function toParameter(value, encoding, timezone) {
           type = Types.DATETIME;
           length = 12;
           writer = function (value) {
-            // eslint-disable-next-line no-invalid-this
             return Packet.prototype.writeDate.call(this, value, timezone);
           };
         } else if (isJSON(value)) {
           value = JSON.stringify(value);
-          type = Types.JSON;
+          // MariaDB rejects the JSON parameter type with "Incorrect
+          // arguments to mysqld_stmt_execute"; it expects JSON values
+          // as plain strings
+          if (!jsonAsString) {
+            type = Types.JSON;
+          }
         } else if (Buffer.isBuffer(value)) {
+          // send buffers as BLOB so servers treat the value as binary data
+          // rather than a string in the connection charset (MariaDB converts
+          // string parameters when storing into binary columns such as
+          // VECTOR, corrupting the value)
+          type = Types.BLOB;
           length = Packet.lengthCodedNumberLength(value.length) + value.length;
           writer = Packet.prototype.writeLengthCodedBuffer;
         }
@@ -59,11 +85,37 @@ function toParameter(value, encoding, timezone) {
   } else {
     value = '';
     type = Types.NULL;
+    length = 0;
+    writer = writeNothing;
   }
-  if (!length) {
-    length = Packet.lengthCodedStringLength(value, encoding);
+  let byteLength;
+  if (length === undefined) {
+    // a non-string here (e.g. a Uint8Array) keeps the Buffer.from coercion
+    // inside StringParser.encode
+    if (
+      typeof value === 'string' &&
+      StringParser.hasFastUtf8Write &&
+      (encoding === 'utf8' || encoding === 'utf-8')
+    ) {
+      byteLength = Buffer.byteLength(value, 'utf8');
+      length = Packet.lengthCodedNumberLength(byteLength) + byteLength;
+      writer = Packet.prototype.writeLengthCodedUtf8String;
+    } else {
+      value = StringParser.encode(value, encoding);
+      length = Packet.lengthCodedNumberLength(value.length) + value.length;
+    }
   }
-  return { value, type, length, writer };
+  return {
+    value,
+    type,
+    length,
+    byteLength,
+    writer,
+    unsigned: false,
+    isNull: type === Types.NULL,
+  };
 }
+
+function writeNothing() {}
 
 module.exports = { toParameter, isJSON };

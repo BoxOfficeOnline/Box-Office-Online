@@ -3,13 +3,22 @@
 const Types = require('../constants/types.js');
 const Charsets = require('../constants/charsets.js');
 const helpers = require('../helpers');
+const LocalDate = require('./local_date.js');
 
 const typeNames = [];
 for (const t in Types) {
   typeNames[Types[t]] = t;
 }
 
-function readField({ packet, type, charset, encoding, config, options }) {
+function readField({
+  packet,
+  field,
+  type,
+  charset,
+  encoding,
+  config,
+  options,
+}) {
   const supportBigNumbers = Boolean(
     options.supportBigNumbers || config.supportBigNumbers
   );
@@ -18,6 +27,14 @@ function readField({ packet, type, charset, encoding, config, options }) {
   );
   const timezone = options.timezone || config.timezone;
   const dateStrings = options.dateStrings || config.dateStrings;
+
+  // MariaDB sends JSON values as LONGTEXT; the JSON type is only visible in
+  // the extended metadata (MARIADB_CLIENT_EXTENDED_METADATA capability)
+  if (field.extendedFormat === 'json') {
+    return config.jsonStrings
+      ? packet.readLengthCodedString(encoding)
+      : packet.parseJson(encoding, supportBigNumbers);
+  }
 
   switch (type) {
     case Types.TINY:
@@ -64,7 +81,7 @@ function readField({ packet, type, charset, encoding, config, options }) {
       // see https://github.com/sidorares/node-mysql2/issues/409
       return config.jsonStrings
         ? packet.readLengthCodedString('utf8')
-        : JSON.parse(packet.readLengthCodedString('utf8'));
+        : packet.parseJson('utf8', supportBigNumbers);
     default:
       if (charset === Charsets.BINARY) {
         return packet.readLengthCodedBuffer();
@@ -76,6 +93,8 @@ function readField({ packet, type, charset, encoding, config, options }) {
 function createTypecastField(field, packet) {
   return {
     type: typeNames[field.columnType],
+    extendedTypeName: field.extendedTypeName,
+    extendedFormat: field.extendedFormat,
     length: field.columnLength,
     db: field.schema,
     table: field.table,
@@ -100,7 +119,10 @@ function createTypecastField(field, packet) {
   };
 }
 
-function getTextParser(_fields, _options, config) {
+function getTextParser(fields, options, config) {
+  if (fields.some((field) => LocalDate.usesLocalDate(field, options, config))) {
+    LocalDate.checkTimezone();
+  }
   return {
     next(packet, fields, options) {
       const result = options.rowsAsArray ? [] : {};
@@ -110,6 +132,7 @@ function getTextParser(_fields, _options, config) {
         const next = () =>
           readField({
             packet,
+            field,
             type: field.columnType,
             encoding: field.encoding,
             charset: field.characterSet,
