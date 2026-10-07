@@ -1,0 +1,32 @@
+.sidebar {
+    background-color: #FFFFFF;
+    border-right: 4px solid #000000;
+    display: flex;
+    top: 72px;
+    flex-direction: column;
+    padding: 0;
+    margin: 0;
+    width: 200px;
+    height: calc(100vh - 72px);
+    position: fixed;
+    overflow: auto;
+}
+
+.sidebar a {
+    color: #000000;
+    text-decoration: none;
+    font-size: 14px;
+    padding: 16px;
+}
+
+.sidebar a:hover {
+    background-color: #000000;
+    color: #FFFFFF;
+    border-radius: 3px;
+}
+
+.sidebar .navLinks {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}

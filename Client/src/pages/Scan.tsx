@@ -50,9 +50,8 @@ export default function Scan() {
             </div>
         );
     }
-
     return (
-        <form className="movie-form" onSubmit={handleSubmit}>
+        <form className="form" onSubmit={handleSubmit}>
             <label>
                 Ticket Number: <input name="ticketNumber" required />
             </label>
