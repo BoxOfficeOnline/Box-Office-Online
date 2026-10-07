@@ -8,19 +8,16 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 dotenv.config();
 app.use(cors());
-
 app.use(express.json());
 app.use(cors({
-  origin: 'https://icy-tree-0c448531e.6.azurestaticapps.net',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type'],
-  credentials: true
+    origin: 'https://kind-cliff-08e0f151e.1.azurestaticapps.net',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type'],
+    credentials: true
 }));
-
 app.get('/', (req, res) => {
     res.status(200).send('Box Office Online API is Live and Connected!');
 });
-
 // MySQL connection
 const dbConfig = {
     host: process.env.DB_HOST || 'box-office-online.mysql.database.azure.com',
@@ -29,23 +26,24 @@ const dbConfig = {
     database: process.env.DB_NAME || 'boxofficedb',
     ssl: { rejectUnauthorized: false }
 };
-let db;
-async function connectDB() {
+const pool = mysql.createPool(dbConfig);
+async function testConnection() {
     try {
-        db = await mysql.createConnection(dbConfig);
+        const connection = await pool.getConnection();
         console.log('Connected to MySQL database');
+        connection.release();
     }
     catch (error) {
         console.error('Database connection failed:', error);
     }
 }
-connectDB();
+testConnection();
 // This is the request to create a barcode from the client
 // To test, start the server and then go to localhost:5000/api/barcode?text=123456
 app.get('/api/barcode', async (req, res) => {
     const { text = '12345', // The actual data we are encoding
     type = 'code128', // Barcode type
-    scale = 3, // Scales the size of the barcode
+    scale = 2, // Scales the size of the barcode
     height = 10, // Height in mm
     includetext = 'yes', // Shows the text below the bars
     textalign = 'center' } = req.query;
@@ -64,20 +62,66 @@ app.get('/api/barcode', async (req, res) => {
 });
 // Purchase endpoint
 app.post('/api/purchase', async (req, res) => {
-    const { customerName, ticketTotal } = req.body;
-    if (!customerName || !ticketTotal) {
-        return res.status(400).json({ error: 'Customer name and ticket total are required' });
+    const { firstName, lastName, ticketTotal } = req.body;
+    if (!firstName || !lastName || !ticketTotal) {
+        return res.status(400).json({ error: 'First name, last name and ticket total are required' });
     }
-    const ticketId = crypto.randomUUID();
+    let connection;
     try {
-        await db.execute('INSERT INTO tickets (ticket_id, movie_id, showing_id, customer_first_name, customer_last_name, customer_email_name, purchase_time, ticket_amount) VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)', [ticketId, 1, 1, customerName, '', '', ticketTotal]);
+        connection = await pool.getConnection();
+        const [users] = await connection.execute('SELECT users_id FROM users WHERE first_name = ? AND last_name = ? LIMIT 1', [firstName, lastName]);
+        let userId;
+        if (users.length === 0) {
+            // No matching user yet, so create one for this ticket
+            // users_id is not auto-increment, so assign the next one
+            const [maxRows] = await connection.execute('SELECT COALESCE(MAX(users_id), 0) + 1 AS next_id FROM users');
+            userId = Number(maxRows[0].next_id);
+            await connection.execute('INSERT INTO users (users_id, first_name, last_name, email_address, password, employee_permission, admin_permission) VALUES (?, ?, ?, \'\', \'\', 0, 0)', [userId, firstName, lastName]);
+        }
+        else {
+            userId = users[0].users_id;
+        }
+        // Get the next ticket ID
+        const [rows] = await connection.execute('SELECT COALESCE(MAX(CAST(ticket_id AS UNSIGNED)), 0) as max_id FROM tickets');
+        const maxId = rows[0].max_id;
+        const ticketId = crypto.randomBytes(4).toString('hex');
+        await connection.execute('INSERT INTO tickets (ticket_id, movie_id, showing_id, user_id, purchase_time, ticket_amount) VALUES (?, ?, ?, ?, NOW(), ?)', [ticketId, 1, 1, userId, ticketTotal]);
         res.json({ ticketId, message: 'Purchase successful' });
     }
     catch (error) {
         console.error('Purchase error:', error);
         res.status(500).json({ error: 'Purchase failed' });
     }
+    finally {
+        if (connection)
+            connection.release();
+    }
+});
+// Validate ticket endpoint
+app.post('/api/validate', async (req, res) => {
+    const { ticketId } = req.body;
+    if (!ticketId) {
+        return res.status(400).json({ error: 'Ticket ID is required' });
+    }
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        const [rows] = await connection.execute('SELECT ticket_id FROM tickets WHERE ticket_id = ?', [ticketId]);
+        const isValid = rows.length > 0;
+        res.json({ isValid });
+    }
+    catch (error) {
+        console.error('Validation error:', error);
+        res.status(500).json({ error: 'Validation failed' });
+    }
+    finally {
+        if (connection)
+            connection.release();
+    }
 });
 app.listen(PORT, () => {
     console.log('Server is running!');
+});
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running on port ${PORT}!`);
 });

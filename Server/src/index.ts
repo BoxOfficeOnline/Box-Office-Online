@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use(cors({
-  origin: 'https://icy-tree-0c448531e.6.azurestaticapps.net',
+  origin: 'https://kind-cliff-08e0f151e.1.azurestaticapps.net',
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
   credentials: true
@@ -79,25 +79,43 @@ app.get('/api/barcode', async (req, res) => {
 
 // Purchase endpoint
 app.post('/api/purchase', async (req, res) => {
-    const { customerName, ticketTotal } = req.body;
+    const { firstName, lastName, ticketTotal } = req.body;
 
-    if (!customerName || !ticketTotal) {
-        return res.status(400).json({ error: 'Customer name and ticket total are required' });
+    if (!firstName || !lastName || !ticketTotal) {
+        return res.status(400).json({ error: 'First name, last name and ticket total are required' });
     }
 
     let connection;
 
     try {
         connection = await pool.getConnection();
-        
+
+        const [users] = await connection.execute(
+            'SELECT users_id FROM users WHERE first_name = ? AND last_name = ? LIMIT 1',
+            [firstName, lastName]
+        );
+        let userId: number;
+        if ((users as any[]).length === 0) {
+            // No matching user yet, so create one for this ticket
+            // users_id is not auto-increment, so assign the next one
+            const [maxRows] = await connection.execute('SELECT COALESCE(MAX(users_id), 0) + 1 AS next_id FROM users');
+            userId = Number((maxRows as any[])[0].next_id);
+            await connection.execute(
+                'INSERT INTO users (users_id, first_name, last_name, email_address, password, employee_permission, admin_permission) VALUES (?, ?, ?, \'\', \'\', 0, 0)',
+                [userId, firstName, lastName]
+            );
+        } else {
+            userId = (users as any[])[0].users_id;
+        }
+
         // Get the next ticket ID
         const [rows] = await connection.execute('SELECT COALESCE(MAX(CAST(ticket_id AS UNSIGNED)), 0) as max_id FROM tickets');
         const maxId = (rows as any)[0].max_id;
         const ticketId = crypto.randomBytes(4).toString('hex');
 
         await connection.execute(
-            'INSERT INTO tickets (ticket_id, movie_id, showing_id, customer_first_name, customer_last_name, customer_email_name, purchase_time, ticket_amount) VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)',
-            [ticketId, 1, 1, customerName, '', '', ticketTotal]
+            'INSERT INTO tickets (ticket_id, movie_id, showing_id, user_id, purchase_time, ticket_amount) VALUES (?, ?, ?, ?, NOW(), ?)',
+            [ticketId, 1, 1, userId, ticketTotal]
         );
         res.json({ ticketId, message: 'Purchase successful' });
     } catch (error) {

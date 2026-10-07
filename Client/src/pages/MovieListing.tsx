@@ -9,7 +9,8 @@ export default function MovieListing() {
     const handleSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
-        const customerName = formData.get("customerName") as string;
+        const firstName = formData.get("firstName") as string;
+        const lastName = formData.get("lastName") as string;
         const ticketTotal = formData.get("ticketTotal") as string;
 
         setLoading(true);
@@ -18,7 +19,8 @@ export default function MovieListing() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    customerName,
+                    firstName,
+                    lastName,
                     ticketTotal: parseInt(ticketTotal)
                 }),
             });
@@ -27,7 +29,7 @@ export default function MovieListing() {
                 const data = await response.json();
                 navigate(`/purchase/${data.ticketId}`);
             } else {
-                alert('Purchase failed - API rejected the request');
+                alert(response.status === 404 ? 'No user found with that name' : 'Purchase failed - API rejected the request');
             }
         } catch (error) {
             console.error('Purchase error:', error);
@@ -39,7 +41,8 @@ export default function MovieListing() {
 
     return(
         <form className="movie-form" onSubmit={handleSubmit}>
-            <label>Name: <input name="customerName" required /></label>
+            <label>First Name: <input name="firstName" required /></label>
+            <label>Last Name: <input name="lastName" required /></label>
             <label>Ticket Total: <input name="ticketTotal" defaultValue="1" required /></label>
             <button type="submit" disabled={loading}>
                 {loading ? 'Purchasing...' : 'Purchase'}
