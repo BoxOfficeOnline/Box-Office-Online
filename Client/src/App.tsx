@@ -32,6 +32,7 @@ function App() {
                     <Route path="logout" element={<Logout />} />
                     <Route path="delete" element={<Delete />} />
                 </Route>
+                <Route path="purchase/:ticketId" element={<Purchase />} />
             </Route>
         </Routes>
         </>
