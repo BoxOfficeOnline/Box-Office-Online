@@ -6,19 +6,19 @@ function Sidebar() {
     return (
         <nav className="sidebar">
             <div className="navLinks">
-                <Link to="/Account">
+                <Link to="/account">
                     Account Ovewview
                 </Link>
-                <Link to="/Change">
+                <Link to="/change">
                     Change Account Info
                 </Link>
-                <Link to="/Tickets">
+                <Link to="/tickets">
                     Tickets
                 </Link>
-                <Link to="/Logout">
+                <Link to="/logout">
                     Log Out
                 </Link>
-                <Link to="/Delete">
+                <Link to="/delete">
                     Delete Account
                 </Link>
             </div>
