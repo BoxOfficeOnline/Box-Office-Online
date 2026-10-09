@@ -7,7 +7,7 @@ function Sidebar() {
         <nav className="sidebar">
             <div className="navLinks">
                 <Link to="/account">
-                    Account Ovewview
+                    Account Overview
                 </Link>
                 <Link to="/change">
                     Change Account Info
