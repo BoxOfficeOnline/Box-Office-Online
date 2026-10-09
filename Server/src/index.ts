@@ -30,6 +30,7 @@ app.get('/', (req, res) => {
 // MySQL connection
 const dbConfig = {
     host: process.env.DB_HOST || 'box-office-online.mysql.database.azure.com',
+    port: Number(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER || 'rootBOO',
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME || 'boxofficedb',

@@ -1,4 +1,7 @@
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+// npm run dev talks to this computer. The built site talks to the live API.
+const API_BASE = import.meta.env.DEV
+    ? "http://localhost:5000"
+    : "https://box-office-online.onrender.com";
 
 export type Account = {
     id: number;
