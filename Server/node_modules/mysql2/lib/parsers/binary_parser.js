@@ -6,6 +6,7 @@ const Types = require('../constants/types.js');
 const helpers = require('../helpers');
 const genFunc = require('generate-function');
 const parserCache = require('./parser_cache.js');
+const LocalDate = require('./local_date.js');
 const typeNames = [];
 for (const t in Types) {
   typeNames[Types[t]] = t;
@@ -21,6 +22,13 @@ function readCodeFor(field, config, options, fieldNum) {
   const timezone = options.timezone || config.timezone;
   const dateStrings = options.dateStrings || config.dateStrings;
   const unsigned = field.flags & FieldFlags.UNSIGNED;
+  // MariaDB sends JSON values as LONGTEXT; the JSON type is only visible in
+  // the extended metadata (MARIADB_CLIENT_EXTENDED_METADATA capability)
+  if (field.extendedFormat === 'json') {
+    return config.jsonStrings
+      ? `packet.readLengthCodedString(fields[${fieldNum}].encoding)`
+      : `packet.parseJson(fields[${fieldNum}].encoding, ${supportBigNumbers});`;
+  }
   switch (field.columnType) {
     case Types.TINY:
       return unsigned ? 'packet.readInt8();' : 'packet.readSInt8();';
@@ -63,7 +71,7 @@ function readCodeFor(field, config, options, fieldNum) {
       // see https://github.com/sidorares/node-mysql2/issues/409
       return config.jsonStrings
         ? 'packet.readLengthCodedString("utf8")'
-        : 'JSON.parse(packet.readLengthCodedString("utf8"));';
+        : `packet.parseJson("utf8", ${supportBigNumbers});`;
     case Types.LONGLONG:
       if (!supportBigNumbers) {
         return unsigned
@@ -89,13 +97,21 @@ function compile(fields, options, config) {
   const parserFn = genFunc();
   const nullBitmapLength = Math.floor((fields.length + 7 + 2) / 8);
 
-  function wrap(field, packet) {
+  function fieldMetadata(field) {
     return {
       type: typeNames[field.columnType],
+      extendedTypeName: field.extendedTypeName,
+      extendedFormat: field.extendedFormat,
       length: field.columnLength,
       db: field.schema,
       table: field.table,
       name: field.name,
+    };
+  }
+
+  function wrap(field, packet) {
+    return {
+      ...fieldMetadata(field),
       string: function (encoding = field.encoding) {
         if (field.columnType === Types.JSON && encoding === field.encoding) {
           // Since for JSON columns mysql always returns charset 63 (BINARY),
@@ -139,9 +155,28 @@ function compile(fields, options, config) {
     };
   }
 
+  /** A NULL value carries no bytes in the binary row packet, so the accessors return null without reading from it. */
+  function wrapNull(field) {
+    return {
+      ...fieldMetadata(field),
+      string: function () {
+        return null;
+      },
+      buffer: function () {
+        return null;
+      },
+      geometry: function () {
+        return null;
+      },
+    };
+  }
+
   parserFn('(function(){');
   parserFn('return class BinaryRow {');
   parserFn('constructor() {');
+  if (fields.some((field) => LocalDate.usesLocalDate(field, options, config))) {
+    parserFn('LocalDate.checkTimezone();');
+  }
   parserFn('}');
 
   parserFn('next(packet, fields, options) {');
@@ -187,18 +222,26 @@ function compile(fields, options, config) {
       lvalue = `result[${fieldName}]`;
     }
 
-    parserFn(`if (nullBitmaskByte${nullByteIndex} & ${currentFieldNullBit}) `);
-    parserFn(`${lvalue} = null;`);
-    parserFn('else {');
+    parserFn(`if (nullBitmaskByte${nullByteIndex} & ${currentFieldNullBit}) {`);
+    if (typeof options.typeCast === 'function') {
+      const nullWrapperVar = `nullWrapper${i}`;
+      parserFn(`const ${nullWrapperVar} = wrapNull(fields[${i}]);`);
+      parserFn(
+        `${lvalue} = options.typeCast(${nullWrapperVar}, function() { return null; });`
+      );
+    } else {
+      parserFn(`${lvalue} = null;`);
+    }
+    parserFn('} else {');
 
     if (options.typeCast === false) {
       parserFn(`${lvalue} = packet.readLengthCodedBuffer();`);
     } else {
-      const fieldWrapperVar = `fieldWrapper${i}`;
-      parserFn(`const ${fieldWrapperVar} = wrap(fields[${i}], packet);`);
       const readCode = readCodeFor(fields[i], config, options, i);
 
       if (typeof options.typeCast === 'function') {
+        const fieldWrapperVar = `fieldWrapper${i}`;
+        parserFn(`const ${fieldWrapperVar} = wrap(fields[${i}], packet);`);
         parserFn(
           `${lvalue} = options.typeCast(${fieldWrapperVar}, function() { return ${readCode} });`
         );
@@ -225,7 +268,7 @@ function compile(fields, options, config) {
       parserFn.toString()
     );
   }
-  return parserFn.toFunction({ wrap });
+  return parserFn.toFunction({ wrap, wrapNull, LocalDate });
 }
 
 function getBinaryParser(fields, options, config) {

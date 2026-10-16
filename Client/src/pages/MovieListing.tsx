@@ -39,11 +39,13 @@ export default function MovieListing() {
         }
     };
 
-    return(
-        <form className="movie-form" onSubmit={handleSubmit}>
+    return (
+        <form className="form" onSubmit={handleSubmit}>
             <label>First Name: <input name="firstName" required /></label>
             <label>Last Name: <input name="lastName" required /></label>
-            <label>Ticket Total: <input name="ticketTotal" defaultValue="1" required /></label>
+            <label>
+                Ticket Total: <input name="ticketTotal" type="number" min="1" step="1" defaultValue="1" required />
+            </label>
             <button type="submit" disabled={loading}>
                 {loading ? 'Purchasing...' : 'Purchase'}
             </button>

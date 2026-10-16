@@ -1,8 +1,11 @@
 'use strict';
 
+const Timers = require('timers');
+
 const Command = require('./command.js');
 const Query = require('./query.js');
 const Packets = require('../packets/index.js');
+const ConnectionConfig = require('../connection_config.js');
 
 const getBinaryParser = require('../parsers/binary_parser.js');
 const getStaticBinaryParser = require('../parsers/static_binary_parser.js');
@@ -20,6 +23,8 @@ class Execute extends Command {
     this.queryTimeout = null;
     this._rows = [];
     this._fields = [];
+    this._currentRows = null;
+    this._currentFields = null;
     this._result = [];
     this._fieldCount = 0;
     this._rowParser = null;
@@ -41,7 +46,10 @@ class Execute extends Command {
 
   start(packet, connection) {
     this._connection = connection;
-    this.options = Object.assign({}, connection.config, this._executeOptions);
+    this.options = ConnectionConfig.queryOptions(
+      connection.config,
+      this._executeOptions
+    );
     this._setTimeout();
     const clientFlags =
       connection.config.clientFlags & (connection.serverCapabilityFlags || 0);
@@ -51,7 +59,9 @@ class Execute extends Command {
       connection.config.charsetNumber,
       connection.config.timezone,
       this._executeOptions.attributes,
-      clientFlags
+      clientFlags,
+      connection._isMariaDB,
+      this.statement.parameters
     );
     //For reasons why this try-catch is here, please see
     // https://github.com/sidorares/node-mysql2/pull/689
@@ -62,7 +72,16 @@ class Execute extends Command {
     try {
       connection.writePacket(executePacket.toPacket(1));
     } catch (error) {
-      this.onResult(error);
+      if (this.queryTimeout) {
+        Timers.clearTimeout(this.queryTimeout);
+        this.queryTimeout = null;
+      }
+      if (this.onResult) {
+        this.onResult(error);
+      } else {
+        this.emit('error', error);
+      }
+      return null;
     }
     return Execute.prototype.resultsetHeader;
   }
@@ -72,12 +91,13 @@ class Execute extends Command {
     // disabling for now, but would be great to find reliable way to parse fields only once
     // fields reported by prepare can be empty at all or just incorrect - see #169
     //
-    // perfomance optimisation: if we already have this field parsed in statement header, use one from header
+    // performance optimisation: if we already have this field parsed in statement header, use one from header
     // const field = this.statement.columns.length == this._fieldCount ?
     //  this.statement.columns[this._receivedFieldsCount] : new Packets.ColumnDefinition(packet);
     const field = new Packets.ColumnDefinition(
       packet,
-      connection.clientEncoding
+      connection.clientEncoding,
+      connection._mariadbExtendedMetadata
     );
     this._receivedFieldsCount++;
     this._fields[this._resultIndex].push(field);

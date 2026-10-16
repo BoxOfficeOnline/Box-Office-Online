@@ -5,13 +5,16 @@ const Charsets = require('../constants/charsets.js');
 const helpers = require('../helpers');
 const genFunc = require('generate-function');
 const parserCache = require('./parser_cache.js');
+const LocalDate = require('./local_date.js');
 
 const typeNames = [];
 for (const t in Types) {
   typeNames[Types[t]] = t;
 }
 
-function readCodeFor(type, charset, encodingExpr, config, options) {
+function readCodeFor(field, encodingExpr, config, options) {
+  const type = field.columnType;
+  const charset = field.characterSet;
   const supportBigNumbers = Boolean(
     options.supportBigNumbers || config.supportBigNumbers
   );
@@ -20,6 +23,14 @@ function readCodeFor(type, charset, encodingExpr, config, options) {
   );
   const timezone = options.timezone || config.timezone;
   const dateStrings = options.dateStrings || config.dateStrings;
+
+  // MariaDB sends JSON values as LONGTEXT; the JSON type is only visible in
+  // the extended metadata (MARIADB_CLIENT_EXTENDED_METADATA capability)
+  if (field.extendedFormat === 'json') {
+    return config.jsonStrings
+      ? `packet.readLengthCodedString(${encodingExpr})`
+      : `packet.parseJson(${encodingExpr}, ${supportBigNumbers})`;
+  }
 
   switch (type) {
     case Types.TINY:
@@ -67,7 +78,7 @@ function readCodeFor(type, charset, encodingExpr, config, options) {
       // see https://github.com/sidorares/node-mysql2/issues/409
       return config.jsonStrings
         ? 'packet.readLengthCodedString("utf8")'
-        : 'JSON.parse(packet.readLengthCodedString("utf8"))';
+        : `packet.parseJson("utf8", ${supportBigNumbers})`;
     default:
       if (charset === Charsets.BINARY) {
         return 'packet.readLengthCodedBuffer()';
@@ -88,6 +99,8 @@ function compile(fields, options, config) {
   function wrap(field, _this) {
     return {
       type: typeNames[field.columnType],
+      extendedTypeName: field.extendedTypeName,
+      extendedFormat: field.extendedFormat,
       length: field.columnLength,
       db: field.schema,
       table: field.table,
@@ -126,6 +139,9 @@ function compile(fields, options, config) {
     parserFn('for(let i=0; i<fields.length; ++i) {');
     parserFn('this[`wrap${i}`] = wrap(fields[i], _this);');
     parserFn('}');
+  }
+  if (fields.some((field) => LocalDate.usesLocalDate(field, options, config))) {
+    parserFn('LocalDate.checkTimezone();');
   }
   parserFn('}');
 
@@ -174,13 +190,7 @@ function compile(fields, options, config) {
       parserFn(`${lvalue} = packet.readLengthCodedBuffer();`);
     } else {
       const encodingExpr = `fields[${i}].encoding`;
-      const readCode = readCodeFor(
-        fields[i].columnType,
-        fields[i].characterSet,
-        encodingExpr,
-        config,
-        options
-      );
+      const readCode = readCodeFor(fields[i], encodingExpr, config, options);
       if (typeof options.typeCast === 'function') {
         parserFn(
           `${lvalue} = options.typeCast(this.wrap${i}, function() { return ${readCode} });`
@@ -201,10 +211,7 @@ function compile(fields, options, config) {
       parserFn.toString()
     );
   }
-  if (typeof options.typeCast === 'function') {
-    return parserFn.toFunction({ wrap });
-  }
-  return parserFn.toFunction();
+  return parserFn.toFunction({ wrap, LocalDate });
 }
 
 function getTextParser(fields, options, config) {

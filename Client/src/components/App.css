@@ -1,0 +1,95 @@
+body {
+    padding-top: 75px;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #F0F0F0;
+}
+
+.home {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+.homePoster {
+    margin-top: 20px;
+}
+
+.homePoster img {
+    width: 300px;
+    height: auto;
+    border-radius: 10px;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.form label {
+    font-size: 18px;
+}
+
+.form input {
+    padding: 5px;
+    font-size: 16px;
+}
+
+.form button {
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #000000;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.form button:hover {
+    background-color: #333333;
+}
+
+.navLogo {
+    width: 50px;
+    height: auto;
+    margin-left: 20px;
+}
+
+.purchase {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    margin-top: 50px;
+    font-weight: bold;
+}
+
+.valid {
+    color: green;
+    font-weight: bold;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.invalid {
+    color: red;
+    font-weight: bold;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.accountPage {
+    margin-left: 204px;
+    padding: 16px;
+}

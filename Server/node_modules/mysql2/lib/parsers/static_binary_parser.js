@@ -4,13 +4,19 @@ const FieldFlags = require('../constants/field_flags.js');
 const Charsets = require('../constants/charsets.js');
 const Types = require('../constants/types.js');
 const helpers = require('../helpers');
+const LocalDate = require('./local_date.js');
 
 const typeNames = [];
 for (const t in Types) {
   typeNames[Types[t]] = t;
 }
 
-function getBinaryParser(fields, _options, config) {
+function getBinaryParser(fields, queryOptions, config) {
+  if (
+    fields.some((field) => LocalDate.usesLocalDate(field, queryOptions, config))
+  ) {
+    LocalDate.checkTimezone();
+  }
   function readCode(field, config, options, fieldNum, packet) {
     const supportBigNumbers = Boolean(
       options.supportBigNumbers || config.supportBigNumbers
@@ -21,6 +27,14 @@ function getBinaryParser(fields, _options, config) {
     const timezone = options.timezone || config.timezone;
     const dateStrings = options.dateStrings || config.dateStrings;
     const unsigned = field.flags & FieldFlags.UNSIGNED;
+
+    // MariaDB sends JSON values as LONGTEXT; the JSON type is only visible in
+    // the extended metadata (MARIADB_CLIENT_EXTENDED_METADATA capability)
+    if (field.extendedFormat === 'json') {
+      return config.jsonStrings
+        ? packet.readLengthCodedString(field.encoding)
+        : packet.parseJson(field.encoding, supportBigNumbers);
+    }
 
     switch (field.columnType) {
       case Types.TINY:
@@ -66,7 +80,7 @@ function getBinaryParser(fields, _options, config) {
         // see https://github.com/sidorares/node-mysql2/issues/409
         return config.jsonStrings
           ? packet.readLengthCodedString('utf8')
-          : JSON.parse(packet.readLengthCodedString('utf8'));
+          : packet.parseJson('utf8', supportBigNumbers);
       case Types.LONGLONG:
         if (!supportBigNumbers)
           return unsigned
@@ -84,6 +98,28 @@ function getBinaryParser(fields, _options, config) {
           ? packet.readLengthCodedBuffer()
           : packet.readLengthCodedString(fields[fieldNum].encoding);
     }
+  }
+
+  /** A NULL value carries no bytes in the binary row packet, so the accessors return null without reading from it. */
+  function wrapNull(field) {
+    return {
+      type: typeNames[field.columnType],
+      extendedTypeName: field.extendedTypeName,
+      extendedFormat: field.extendedFormat,
+      length: field.columnLength,
+      db: field.schema,
+      table: field.table,
+      name: field.name,
+      string: function () {
+        return null;
+      },
+      buffer: function () {
+        return null;
+      },
+      geometry: function () {
+        return null;
+      },
+    };
   }
 
   return class BinaryRow {
@@ -110,7 +146,10 @@ function getBinaryParser(fields, _options, config) {
 
         let value;
         if (nullBitmaskBytes[nullByteIndex] & currentFieldNullBit) {
-          value = null;
+          value =
+            typeof typeCast === 'function'
+              ? typeCast(wrapNull(field), () => null)
+              : null;
         } else if (options.typeCast === false) {
           value = packet.readLengthCodedBuffer();
         } else {
@@ -120,6 +159,8 @@ function getBinaryParser(fields, _options, config) {
               ? typeCast(
                   {
                     type: typeNames[field.columnType],
+                    extendedTypeName: field.extendedTypeName,
+                    extendedFormat: field.extendedFormat,
                     length: field.columnLength,
                     db: field.schema,
                     table: field.table,
