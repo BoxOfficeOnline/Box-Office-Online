@@ -1,0 +1,26 @@
+.showtime {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr) minmax(180px, auto);
+    align-items: start;
+    gap: 1rem;
+}
+
+#poster img {
+    height: 25%;
+    width: 25%;
+    flex: auto;
+    object-fit: cover;
+    border-radius: 10px;
+}
+
+#synopsis {
+    flex-grow: 1;
+}
+
+#times {
+    display: flex;
+    flex-direction: row;
+    flex-grow: 1;
+    flex-wrap: wrap;
+    justify-content: center;
+}

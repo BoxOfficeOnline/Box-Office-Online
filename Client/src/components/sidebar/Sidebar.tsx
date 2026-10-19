@@ -9,6 +9,9 @@ function Sidebar() {
                 <Link to="/account">
                     Account Overview
                 </Link>
+                <Link to="/admin">
+                    Admin Panel
+                </Link>
                 <Link to="/change">
                     Change Account Info
                 </Link>
