@@ -193,9 +193,14 @@ app.get('/api/theaters', async (_req, res) => {
 app.get('/api/movies', async (_req, res) => {
     try {
         const [rows] = await pool.execute(
-            'SELECT movie_id, title, release_year, rating, length, description FROM movies ORDER BY title'
+            'SELECT movie_id, title, release_year, rating, length, description, image FROM movies ORDER BY title'
         );
-        res.json({ movies: rows });
+        // image is a LONGBLOB, so send it as base64 text
+        const movies = (rows as any[]).map((row) => ({
+            ...row,
+            image: row.image ? Buffer.from(row.image).toString('base64') : null,
+        }));
+        res.json({ movies });
     } catch (error) {
         console.error('Movies error:', error);
         res.status(500).json({ error: 'Could not load movies' });

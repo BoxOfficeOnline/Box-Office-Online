@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS `movies` (
   `rating` varchar(5) NOT NULL,
   `length` int NOT NULL,
   `description` longtext NOT NULL,
+  `image` longblob DEFAULT NULL,
   PRIMARY KEY (`movie_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
