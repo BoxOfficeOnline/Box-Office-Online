@@ -10,6 +10,7 @@ export type Account = {
     email: string;
     employeePermission: boolean;
     adminPermission: boolean;
+    theaterId: number | null;
     theaterName: string | null;
 };
 

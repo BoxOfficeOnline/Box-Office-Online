@@ -6,12 +6,12 @@ Box Office Online is a movie-ticketing web application. Its React client provide
 
 - `Client/` — React 19, TypeScript, and Vite single-page application.
 - `Server/` — Express 5 API written in TypeScript.
-- `data.sql` — SQL definition for the `tickets` table. It references existing `users`, `movies`, and `showing` tables.
+- `data.sql` — SQL definitions for the `theaters`, `movies`, `users`, `showing`, and `tickets` tables and their foreign keys.
 
 ## Requirements
 
 - Node.js and npm
-- A MySQL database with the `users`, `movies`, and `showing` tables expected by the API, plus the `tickets` table definition in `data.sql`
+- A MySQL database created with `data.sql`
 
 ## Run locally
 
@@ -51,7 +51,7 @@ cd Client
 npm run dev
 ```
 
-Vite serves the client at `http://localhost:5173`. Account API calls use `http://localhost:5000` in development. Ticket purchasing and validation currently call the deployed API directly, so those actions use the hosted service even when the client is running locally.
+Vite serves the client at `http://localhost:5173`. Account and purchase API calls use `http://localhost:5000` in development. Ticket validation still calls the deployed API directly, even when the client is running locally.
 
 ## Available scripts
 
@@ -92,6 +92,9 @@ The API listens on `PORT` if provided, otherwise port `5000`.
 | --- | --- | --- |
 | `GET` | `/` | API health response. |
 | `GET` | `/api/barcode` | Generate a PNG barcode; accepts `text`, `type`, `scale`, `height`, `includetext`, and `textalign` query parameters. |
+| `GET` | `/api/theaters` | List theaters for account assignment. |
+| `GET` | `/api/movies` | List movies. |
+| `GET` | `/api/showings` | List showtimes with movie and theater details. |
 | `POST` | `/api/purchase` | Create a ticket purchase. |
 | `POST` | `/api/validate` | Check whether a ticket ID exists. |
 | `POST` | `/api/account` | Create an account. |
