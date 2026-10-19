@@ -9,7 +9,7 @@ export default function Showtimes() {
     return (
         <body>
             <div>
-                <h1>Showtimes</h1>
+                <h1 style={{ textAlign: "center" }}>Showtimes</h1>
             </div>
             <div className="showtime">
                 <div id="poster">
