@@ -13,6 +13,9 @@ function Nav() {
                 <Link to="/">
                     Home
                 </Link>
+                <Link to="/showtimes">
+                    Showtimes
+                </Link>
                 <Link to="/scan">
                     Scan Tickets
                 </Link>
