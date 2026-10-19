@@ -9,7 +9,8 @@ import Showtimes from './pages/Showtimes.tsx'
 import Login from './pages/Login.tsx'
 import CreateAccount from './pages/CreateAccount.tsx'
 import Account from './pages/accountPages/Account.tsx'
-import Admin from './pages/accountPages/Admin.tsx'
+import AddShowtime from './pages/adminPages/AddShowtime.tsx'
+import Admin from './pages/adminPages/Admin.tsx'
 import Change from './pages/accountPages/Change.tsx'
 import Tickets from './pages/accountPages/Tickets.tsx'
 import Logout from './pages/accountPages/Logout.tsx'
@@ -28,9 +29,10 @@ function App() {
                 <Route path="showtimes" element={<Showtimes />} />
                 <Route path="login" element={<Login />} />
                 <Route path="createAccount" element={<CreateAccount />} />
+                <Route path="addshowtime" element={<AddShowtime />} />
+                <Route path="admin" element={<Admin />} />
                 <Route element={<AccountLayout />}>
                     <Route path="account" element={<Account />} />
-                    <Route path="admin" element={<Admin />} />
                     <Route path="change" element={<Change />} />
                     <Route path="tickets" element={<Tickets />} />
                     <Route path="logout" element={<Logout />} />

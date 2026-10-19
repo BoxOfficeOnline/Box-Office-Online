@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import "../../components/App.css"
 import { accountFetch, getAccountId } from "../../accountApi.ts"
 
-export default function Admin() {
+export default function AddShowtime() {
     return (
 
         <div>

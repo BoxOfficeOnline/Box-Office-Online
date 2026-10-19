@@ -22,6 +22,9 @@ function Nav() {
                 <Link to="/account">
                     Account Test
                 </Link>
+                <Link to="/addshowtime">
+                    Admin Dashboard
+                </Link>
             </div>
             <div style={{ display: 'flex', marginLeft: 'auto' }}>
                 <Link to="/login">
