@@ -12,14 +12,14 @@ type Ticket = {
 
 export default function Tickets() {
     const [tickets, setTickets] = useState<Ticket[]>([])
-    const [message, setMessage] = useState("")
+    const [message, setMessage] = useState(() =>
+        getAccountId() ? "" : "You need to log in first."
+    )
     const [ok, setOk] = useState(false)
 
     useEffect(() => {
         const id = getAccountId()
         if (!id) {
-            setOk(false)
-            setMessage("You need to log in first.")
             return
         }
 
