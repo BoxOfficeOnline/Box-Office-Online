@@ -33,5 +33,3 @@ jobs:
         password: ${{ secrets.AZURE_MYSQL_PASSWORD }}
         database: boxofficedb
         sql-file: './data.sql'
-- name: Lint Action
-  uses: wearerequired/lint-action@v3.0.2
