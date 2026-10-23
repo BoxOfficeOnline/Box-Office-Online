@@ -6,11 +6,20 @@ export default function Admin() {
     return (
 
         <div>
+            <h1 style={{ textAlign: "center" }}>Add a Movie</h1>
+            <form className="form">
+                <input type="text" placeholder="Movie Title" />
+                <input type="text" placeholder="Movie Synopsis" />
+                <input type="file" id="movie-poster" name="movie-poster" />
+                <button type="submit">Add Movie</button>
+            </form>
+            <br/>
             <h1 style={{ textAlign: "center" }}>Add a Showtime</h1>
             <form className="form">
                 <select>
                     <option value="movie1">Movie 1</option>
                 </select>
+                <input type="date" />
                 <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
                     <select>
                         <option value="1">1</option>
