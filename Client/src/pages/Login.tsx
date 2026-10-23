@@ -40,12 +40,8 @@ export default function Login() {
     return (
         <>
             <form className="form" onSubmit={handleSubmit}>
-                <label>
-                    Email: <input name="email" type="email" required />
-                </label>
-                <label>
-                    Password: <input name="password" type="password" required />
-                </label>
+                <input name="email" type="email" placeholder="Email" required />
+                <input name="password" type="password" placeholder="Password" required />
                 <button type="submit" disabled={loading}>
                     {loading ? "Logging in..." : "Login"}
                 </button>

@@ -48,21 +48,11 @@ export default function CreateAccount() {
     return (
         <>
             <form className="form" onSubmit={handleSubmit}>
-                <label>
-                    First Name: <input name="fname" required />
-                </label>
-                <label>
-                    Last Name: <input name="lname" required />
-                </label>
-                <label>
-                    Email: <input name="email" type="email" required />
-                </label>
-                <label>
-                    Password: <input name="password" type="password" required />
-                </label>
-                <label>
-                    Re-Type Password: <input name="confirmPassword" type="password" required />
-                </label>
+                <input name="fname" placeholder="First Name" required />
+                <input name="lname" placeholder="Last Name" required />
+                <input name="email" type="email" placeholder="Email" required />
+                <input name="password" type="password" placeholder="Password" required />
+                <input name="confirmPassword" type="password" placeholder="Re-Type Password" required />
                 <button type="submit" disabled={loading}>
                     {loading ? "Creating..." : "Create Account"}
                 </button>
