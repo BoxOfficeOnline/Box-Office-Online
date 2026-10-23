@@ -1,6 +1,9 @@
 import type { SyntheticEvent } from "react";
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import "../components/App.css"
+import wallE from '../assets/WALL-E.webp';
+import "../components/MovieListing.css"
 
 type Showing = {
     showing_id: number;
@@ -13,6 +16,7 @@ type Showing = {
 const API_BASE = import.meta.env.DEV
     ? "http://localhost:5000"
     : "https://box-office-online.onrender.com";
+
 
 export default function MovieListing() {
     const navigate = useNavigate();
@@ -69,35 +73,46 @@ export default function MovieListing() {
     };
 
     return (
-        <>
-            {loadingShowings ? (
-                <div className="valid">Loading showings...</div>
-            ) : showings.length === 0 ? (
-                <div className="invalid">{message || "There are no showings available."}</div>
-            ) : (
-                <form className="form" onSubmit={handleSubmit}>
-                    <label>First Name: <input name="firstName" maxLength={45} required /></label>
-                    <label>Last Name: <input name="lastName" maxLength={45} required /></label>
-                    <label>
-                        Showing:
-                        <select name="showingId" required defaultValue="">
-                            <option value="" disabled>Select a showing</option>
-                            {showings.map((showing) => (
-                                <option key={showing.showing_id} value={showing.showing_id}>
-                                    {showing.title} - {showing.theater_name} ({showing.theater_location}) - {new Date(showing.showtime).toLocaleString()}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <label>
-                        Ticket Total: <input name="ticketTotal" type="number" min="1" step="1" defaultValue="1" required />
-                    </label>
-                    <button type="submit" disabled={loading}>
-                        {loading ? "Purchasing..." : "Purchase"}
-                    </button>
-                </form>
-            )}
-            {message && showings.length > 0 && <div className="invalid">{message}</div>}
-        </>
+        <div className="listing">
+            <div id="poster">
+                <img src={wallE} alt="WALL-E"/>
+            </div>
+            <div id="synopsis">
+                <p>Synopsis goes here...</p>
+            </div>
+            <div id="order">
+                <h2>Order Tickets</h2>
+                <>
+                    {loadingShowings ? (
+                        <div className="valid">Loading showings...</div>
+                    ) : showings.length === 0 ? (
+                        <div className="invalid">{message || "There are no showings available."}</div>
+                    ) : (
+                    <form className="form" onSubmit={handleSubmit}>
+                        <label>First Name: <input name="firstName" maxLength={45} required /></label>
+                        <label>Last Name: <input name="lastName" maxLength={45} required /></label>
+                        <label>
+                            Showing:
+                            <select name="showingId" required defaultValue="">
+                                <option value="" disabled>Select a showing</option>
+                                {showings.map((showing) => (
+                                    <option key={showing.showing_id} value={showing.showing_id}>
+                                        {showing.title} - {showing.theater_name} ({showing.theater_location}) - {new Date(showing.showtime).toLocaleString()}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <label>
+                            Ticket Total: <input name="ticketTotal" type="number" min="1" step="1" defaultValue="1" required />
+                        </label>
+                        <button type="submit" disabled={loading}>
+                            {loading ? "Purchasing..." : "Purchase"}
+                        </button>
+                    </form>
+                    )}
+                {message && showings.length > 0 && <div className="invalid">{message}</div>}
+                </>
+            </div>
+        </div>
     );
 }

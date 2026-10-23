@@ -1,0 +1,31 @@
+.listing {
+    height: clamp(180px, 100%, 300px);
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: 1.5fr 2.5fr 1.5fr;
+    gap: 15px;
+}
+
+#poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+#synopsis {
+    flex-grow: 1;
+}
+
+#order {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+#showtimes {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-auto-rows: 75px;
+    grid-gap: 10px;
+}
