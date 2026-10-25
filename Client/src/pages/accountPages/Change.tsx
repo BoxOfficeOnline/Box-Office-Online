@@ -65,6 +65,13 @@ export default function Change() {
             return
         }
 
+        const trimmedPassword = password.trim()
+        if (trimmedPassword && trimmedPassword.length < 8) {
+            setOk(false)
+            setMessage("Password must be at least 8 characters.")
+            return
+        }
+
         const body: {
             firstName: string
             lastName: string
@@ -72,13 +79,13 @@ export default function Change() {
             theaterId: number | null
             password?: string
         } = {
-            firstName,
-            lastName,
-            email,
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            email: email.trim(),
             theaterId: theaterId ? Number(theaterId) : null,
         }
-        if (password) {
-            body.password = password
+        if (trimmedPassword) {
+            body.password = trimmedPassword
         }
 
         setLoading(true)

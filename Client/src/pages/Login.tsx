@@ -10,8 +10,8 @@ export default function Login() {
     const handleSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
-        const email = formData.get("email") as string;
-        const password = formData.get("password") as string;
+        const email = (formData.get("email") as string).trim();
+        const password = (formData.get("password") as string).trim();
 
         setLoading(true);
         try {

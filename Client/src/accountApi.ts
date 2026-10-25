@@ -14,14 +14,19 @@ export type Account = {
     theaterName: string | null;
 };
 
+// Lets the navbar know someone logged in or out
+export const SESSION_EVENT = "sessionchange";
+
 export function saveSession(token: string, accountId: number) {
     localStorage.setItem("token", token);
     localStorage.setItem("accountId", String(accountId));
+    window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
 export function clearSession() {
     localStorage.removeItem("token");
     localStorage.removeItem("accountId");
+    window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
 export function getAccountId() {
