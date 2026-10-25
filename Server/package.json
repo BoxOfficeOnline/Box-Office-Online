@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "ts-node src/index.ts",
     "build": "tsc",
-    "dev": "nodemon --exec ts-node src/index.ts",
+    "dev": "nodemon --exec npx ts-node src/index.ts",
     "dev-all": "concurrently \"npm run dev\" \"cd ../Client && npm run dev\""
   },
   "keywords": [],
@@ -29,7 +29,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^25.6.0",
     "concurrently": "^9.2.1",
-    "nodemon": "^1.14.10"
+    "nodemon": "^3.1.14"
   },
   "allowScripts": {
     "nodemon@1.19.4": true

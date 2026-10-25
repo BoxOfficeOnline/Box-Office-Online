@@ -394,7 +394,7 @@ app.post('/api/purchase', async (req, res) => {
             const [maxRows] = await connection.execute('SELECT COALESCE(MAX(users_id), 0) + 1 AS next_id FROM users');
             userId = Number((maxRows as any[])[0].next_id);
             await connection.execute(
-                'INSERT INTO users (users_id, first_name, last_name, email_address, password, employee_permission, admin_permission, theater_id) VALUES (?, ?, ?, \'\', \'\', 0, 0, NULL)',
+                'INSERT INTO users (users_id, first_name, last_name, email_address, password, employee_permission, admin_permission, theater_name) VALUES (?, ?, ?, \'\', \'\', 0, 0, NULL)',
                 [userId, firstName, lastName]
             );
         } else {
@@ -478,7 +478,7 @@ app.post('/api/account', async (req, res) => {
         const userId = Number((maxRows as any[])[0].next_id);
 
         await connection.execute(
-            'INSERT INTO users (users_id, first_name, last_name, email_address, password, employee_permission, admin_permission, theater_id) VALUES (?, ?, ?, ?, ?, 0, 0, NULL)',
+            'INSERT INTO users (users_id, first_name, last_name, email_address, password, employee_permission, admin_permission, theater_name) VALUES (?, ?, ?, ?, ?, 0, 0, NULL)',
             [userId, firstName, lastName, email, hashPassword(password)]
         );
 
@@ -517,9 +517,9 @@ app.post('/api/login', async (req, res) => {
         connection = await pool.getConnection();
         const [rows] = await connection.execute(
             `SELECT users.users_id, users.first_name, users.last_name, users.email_address, users.password,
-                    users.employee_permission, users.admin_permission, users.theater_id, theaters.theater_name
+                    users.employee_permission, users.admin_permission, users.theater_name, theaters.theater_id
              FROM users
-             LEFT JOIN theaters ON theaters.theater_id = users.theater_id
+             LEFT JOIN theaters ON theaters.theater_name = users.theater_name
              WHERE users.email_address = ? LIMIT 1`,
             [email]
         );
@@ -557,9 +557,9 @@ app.get('/api/account/:id', async (req, res) => {
         connection = await pool.getConnection();
         const [rows] = await connection.execute(
             `SELECT users.users_id, users.first_name, users.last_name, users.email_address,
-                    users.employee_permission, users.admin_permission, users.theater_id, theaters.theater_name
+                    users.employee_permission, users.admin_permission, users.theater_name, theaters.theater_id
              FROM users
-             LEFT JOIN theaters ON theaters.theater_id = users.theater_id
+             LEFT JOIN theaters ON theaters.theater_name = users.theater_name
              WHERE users.users_id = ?`,
             [accountId]
         );
@@ -636,18 +636,21 @@ app.put('/api/account/:id', async (req, res) => {
         updates.push('password = ?');
         values.push(hashPassword(password));
     }
+    // users stores the theater by name, so the name gets filled in once we look it up below
+    let theaterNameIndex = -1;
     if (req.body.theaterId !== undefined) {
         const rawTheaterId = req.body.theaterId;
         if (rawTheaterId === null || rawTheaterId === '') {
-            updates.push('theater_id = ?');
+            updates.push('theater_name = ?');
             values.push(null);
         } else {
             const theaterId = Number(rawTheaterId);
             if (!Number.isSafeInteger(theaterId) || theaterId < 1) {
                 return res.status(400).json({ error: 'Theater id must be a positive number or null' });
             }
-            updates.push('theater_id = ?');
-            values.push(theaterId);
+            updates.push('theater_name = ?');
+            theaterNameIndex = values.length;
+            values.push(null);
         }
     }
 
@@ -670,14 +673,15 @@ app.put('/api/account/:id', async (req, res) => {
                 return res.status(409).json({ error: 'An account with that email already exists' });
             }
         }
-        if (req.body.theaterId !== undefined && req.body.theaterId !== null && req.body.theaterId !== '') {
+        if (theaterNameIndex !== -1) {
             const [theaters] = await connection.execute(
-                'SELECT theater_id FROM theaters WHERE theater_id = ?',
+                'SELECT theater_name FROM theaters WHERE theater_id = ?',
                 [Number(req.body.theaterId)]
             );
             if ((theaters as any[]).length === 0) {
                 return res.status(400).json({ error: 'The selected theater does not exist' });
             }
+            values[theaterNameIndex] = (theaters as any[])[0].theater_name;
         }
 
         values.push(accountId);
@@ -691,9 +695,9 @@ app.put('/api/account/:id', async (req, res) => {
 
         const [rows] = await connection.execute(
             `SELECT users.users_id, users.first_name, users.last_name, users.email_address,
-                    users.employee_permission, users.admin_permission, users.theater_id, theaters.theater_name
+                    users.employee_permission, users.admin_permission, users.theater_name, theaters.theater_id
              FROM users
-             LEFT JOIN theaters ON theaters.theater_id = users.theater_id
+             LEFT JOIN theaters ON theaters.theater_name = users.theater_name
              WHERE users.users_id = ?`,
             [accountId]
         );

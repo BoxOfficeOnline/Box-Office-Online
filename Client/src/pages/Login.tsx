@@ -21,7 +21,7 @@ export default function Login() {
             });
 
             if (response.ok) {
-                saveSession(data.token, data.account.id);
+                saveSession(data.token, data.account.id, data.account.adminPermission);
                 setOk(true);
                 setMessage("Logged in.");
             } else {

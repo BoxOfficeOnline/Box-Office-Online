@@ -4,6 +4,7 @@ import "../components/Showtime.css"
 import { accountFetch, getAccountId } from "../accountApi.ts"
 import { Link } from "react-router-dom"
 import wallE from '../assets/WALL-E.webp';
+import { posterSrc } from "../posterSrc.ts"
 
 type Movie = {
     movie_id: number
@@ -16,19 +17,6 @@ type Showing = {
     showing_id: number
     movie_id: number
     showtime: string
-}
-
-// The poster comes back without a filetype so we have to guess what the user uploaded.
-function posterSrc(image: string) {
-    let type = "image/png"
-    if (image.startsWith("/9j/")) {
-        type = "image/jpeg"
-    } else if (image.startsWith("R0lG")) {
-        type = "image/gif"
-    } else if (image.startsWith("UklGR")) {
-        type = "image/webp"
-    }
-    return `data:${type};base64,${image}`
 }
 
 // Turns a showtime into the same YYYY-MM-DD the date picker gives back
@@ -79,7 +67,7 @@ export default function Showtimes() {
                 {movies.map((movie) => (
                     <div className="showtime" key={movie.movie_id}>
                         <div id="poster">
-                            <Link to="/movies">
+                            <Link to={`/movies?movieId=${movie.movie_id}`}>
                             <img src={movie.image ? posterSrc(movie.image) : wallE} alt={movie.title}/>
                             </Link>
                         </div>
