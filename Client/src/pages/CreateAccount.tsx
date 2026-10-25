@@ -10,12 +10,17 @@ export default function CreateAccount() {
     const handleSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
-        const firstName = formData.get("fname") as string;
-        const lastName = formData.get("lname") as string;
-        const email = formData.get("email") as string;
-        const password = formData.get("password") as string;
-        const confirmPassword = formData.get("confirmPassword") as string;
+        const firstName = (formData.get("fname") as string).trim();
+        const lastName = (formData.get("lname") as string).trim();
+        const email = (formData.get("email") as string).trim();
+        const password = (formData.get("password") as string).trim();
+        const confirmPassword = (formData.get("confirmPassword") as string).trim();
 
+        if (password.length < 8) {
+            setOk(false);
+            setMessage("Password must be at least 8 characters.");
+            return;
+        }
         if (password !== confirmPassword) {
             setOk(false);
             setMessage("Passwords do not match.");

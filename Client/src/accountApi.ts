@@ -14,18 +14,35 @@ export type Account = {
     theaterName: string | null;
 };
 
-export function saveSession(token: string, accountId: number) {
+// Lets the navbar know someone logged in or out
+export const SESSION_EVENT = "sessionchange";
+
+export function saveSession(token: string, accountId: number, adminPermission: boolean) {
     localStorage.setItem("token", token);
     localStorage.setItem("accountId", String(accountId));
+    localStorage.setItem("adminPermission", String(adminPermission));
+    window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
 export function clearSession() {
     localStorage.removeItem("token");
     localStorage.removeItem("accountId");
+    localStorage.removeItem("adminPermission");
+    window.dispatchEvent(new Event(SESSION_EVENT));
+}
+
+export function saveAdminPermission(adminPermission: boolean) {
+    localStorage.setItem("adminPermission", String(adminPermission));
+    window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
 export function getAccountId() {
     return localStorage.getItem("accountId");
+}
+
+// Only decides what the page shows; the server still checks admin_permission itself
+export function isAdmin() {
+    return localStorage.getItem("adminPermission") === "true";
 }
 
 export async function accountFetch(path: string, options: RequestInit = {}) {

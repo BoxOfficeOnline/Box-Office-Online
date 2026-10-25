@@ -18,7 +18,7 @@ export default function Delete() {
         }
 
         const formData = new FormData(e.currentTarget)
-        const password = formData.get("password") as string
+        const password = (formData.get("password") as string).trim()
 
         setLoading(true)
         try {
