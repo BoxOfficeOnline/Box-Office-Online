@@ -5,9 +5,12 @@ import Home from './pages/Home.tsx'
 import MovieListing from './pages/MovieListing.tsx'
 import Scan from './pages/Scan.tsx'
 import Purchase from './pages/Purchase.tsx'
+import Showtimes from './pages/Showtimes.tsx'
 import Login from './pages/Login.tsx'
 import CreateAccount from './pages/CreateAccount.tsx'
 import Account from './pages/accountPages/Account.tsx'
+import AddShowtime from './pages/adminPages/AddShowtime.tsx'
+import Admin from './pages/adminPages/Admin.tsx'
 import Change from './pages/accountPages/Change.tsx'
 import Tickets from './pages/accountPages/Tickets.tsx'
 import Logout from './pages/accountPages/Logout.tsx'
@@ -23,8 +26,11 @@ function App() {
                 <Route path="movies" element={<MovieListing />} />
                 <Route path="scan" element={<Scan />} />
                 <Route path="purchase" element={<Purchase />} />
+                <Route path="showtimes" element={<Showtimes />} />
                 <Route path="login" element={<Login />} />
                 <Route path="createAccount" element={<CreateAccount />} />
+                <Route path="addshowtime" element={<AddShowtime />} />
+                <Route path="admin" element={<Admin />} />
                 <Route element={<AccountLayout />}>
                     <Route path="account" element={<Account />} />
                     <Route path="change" element={<Change />} />

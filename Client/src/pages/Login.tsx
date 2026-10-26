@@ -10,8 +10,8 @@ export default function Login() {
     const handleSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
-        const email = formData.get("email") as string;
-        const password = formData.get("password") as string;
+        const email = (formData.get("email") as string).trim();
+        const password = (formData.get("password") as string).trim();
 
         setLoading(true);
         try {
@@ -21,7 +21,7 @@ export default function Login() {
             });
 
             if (response.ok) {
-                saveSession(data.token, data.account.id);
+                saveSession(data.token, data.account.id, data.account.adminPermission);
                 setOk(true);
                 setMessage("Logged in.");
             } else {
@@ -40,12 +40,8 @@ export default function Login() {
     return (
         <>
             <form className="form" onSubmit={handleSubmit}>
-                <label>
-                    Email: <input name="email" type="email" required />
-                </label>
-                <label>
-                    Password: <input name="password" type="password" required />
-                </label>
+                <input name="email" type="email" placeholder="Email" required />
+                <input name="password" type="password" placeholder="Password" required />
                 <button type="submit" disabled={loading}>
                     {loading ? "Logging in..." : "Login"}
                 </button>

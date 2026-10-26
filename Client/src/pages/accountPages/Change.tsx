@@ -3,11 +3,18 @@ import { useEffect, useState } from "react"
 import "../../components/App.css"
 import { accountFetch, getAccountId } from "../../accountApi.ts"
 
+type Theater = {
+    theater_id: number
+    theater_name: string
+    theater_location: string
+}
+
 export default function Change() {
     const [firstName, setFirstName] = useState("")
     const [lastName, setLastName] = useState("")
     const [email, setEmail] = useState("")
-    const [theaterName, setTheaterName] = useState("")
+    const [theaterId, setTheaterId] = useState("")
+    const [theaters, setTheaters] = useState<Theater[]>([])
     const [password, setPassword] = useState("")
     const [message, setMessage] = useState("")
     const [ok, setOk] = useState(false)
@@ -21,17 +28,26 @@ export default function Change() {
             return
         }
 
-        accountFetch(`/api/account/${id}`)
-            .then(({ response, data }) => {
-                if (!response.ok) {
+        Promise.all([
+            accountFetch(`/api/account/${id}`),
+            accountFetch("/api/theaters"),
+        ])
+            .then(([accountResult, theaterResult]) => {
+                if (!accountResult.response.ok) {
                     setOk(false)
-                    setMessage(data.error || "Could not load the account.")
+                    setMessage(accountResult.data.error || "Could not load the account.")
                     return
                 }
-                setFirstName(data.account.firstName)
-                setLastName(data.account.lastName)
-                setEmail(data.account.email)
-                setTheaterName(data.account.theaterName || "")
+                if (!theaterResult.response.ok) {
+                    setOk(false)
+                    setMessage(theaterResult.data.error || "Could not load theaters.")
+                    return
+                }
+                setFirstName(accountResult.data.account.firstName)
+                setLastName(accountResult.data.account.lastName)
+                setEmail(accountResult.data.account.email)
+                setTheaterId(accountResult.data.account.theaterId ? String(accountResult.data.account.theaterId) : "")
+                setTheaters(theaterResult.data.theaters as Theater[])
             })
             .catch((error) => {
                 console.error("Change account error:", error)
@@ -49,9 +65,27 @@ export default function Change() {
             return
         }
 
-        const body: Record<string, string> = { firstName, lastName, email, theaterName }
-        if (password) {
-            body.password = password
+        const trimmedPassword = password.trim()
+        if (trimmedPassword && trimmedPassword.length < 8) {
+            setOk(false)
+            setMessage("Password must be at least 8 characters.")
+            return
+        }
+
+        const body: {
+            firstName: string
+            lastName: string
+            email: string
+            theaterId: number | null
+            password?: string
+        } = {
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            email: email.trim(),
+            theaterId: theaterId ? Number(theaterId) : null,
+        }
+        if (trimmedPassword) {
+            body.password = trimmedPassword
         }
 
         setLoading(true)
@@ -90,7 +124,15 @@ export default function Change() {
                     Email: <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                 </label>
                 <label>
-                    Theater Name: <input value={theaterName} onChange={(e) => setTheaterName(e.target.value)} />
+                    Theater:
+                    <select value={theaterId} onChange={(e) => setTheaterId(e.target.value)}>
+                        <option value="">None</option>
+                        {theaters.map((theater) => (
+                            <option key={theater.theater_id} value={theater.theater_id}>
+                                {theater.theater_name} ({theater.theater_location})
+                            </option>
+                        ))}
+                    </select>
                 </label>
                 <label>
                     New Password: <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />

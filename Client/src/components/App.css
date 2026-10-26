@@ -35,7 +35,8 @@ body {
     font-size: 18px;
 }
 
-.form input {
+.form input,
+.form select {
     padding: 5px;
     font-size: 16px;
 }
