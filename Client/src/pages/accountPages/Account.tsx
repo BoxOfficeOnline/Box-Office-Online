@@ -4,14 +4,14 @@ import { accountFetch, getAccountId, type Account } from "../../accountApi.ts"
 
 export default function Account() {
     const [account, setAccount] = useState<Account | null>(null)
-    const [message, setMessage] = useState("")
+    const [message, setMessage] = useState(() =>
+        getAccountId() ? "" : "You need to log in first."
+    )
     const [ok, setOk] = useState(false)
 
     useEffect(() => {
         const id = getAccountId()
         if (!id) {
-            setOk(false)
-            setMessage("You need to log in first.")
             return
         }
 

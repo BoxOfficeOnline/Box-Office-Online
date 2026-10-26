@@ -11,7 +11,8 @@ const PORT = Number(process.env.PORT) || 5000;
 dotenv.config();
 
 app.use(cors());
-app.use(express.json());
+// Movie posters need a bigger limit
+app.use(express.json({ limit: '10mb' }));
 
 app.use(cors({
   origin: [
@@ -148,6 +149,27 @@ async function authorizeAccount(req: express.Request, res: express.Response, acc
     return false;
 }
 
+// Makes sure you are logged in as an admin
+async function authorizeAdmin(req: express.Request, res: express.Response): Promise<boolean> {
+    const token = readSessionToken(req);
+    const session = token ? sessions.get(token) : undefined;
+    if (!session) {
+        res.status(401).json({ error: 'Login required' });
+        return false;
+    }
+
+    const [rows] = await pool.execute(
+        'SELECT admin_permission FROM users WHERE users_id = ?',
+        [session.userId]
+    );
+    if ((rows as any[])[0]?.admin_permission) {
+        return true;
+    }
+
+    res.status(403).json({ error: 'Admin permission required' });
+    return false;
+}
+
 // This is the request to create a barcode from the client
 
 // To test, start the server and then go to localhost:5000/api/barcode?text=123456
@@ -193,9 +215,9 @@ app.get('/api/theaters', async (_req, res) => {
 app.get('/api/movies', async (_req, res) => {
     try {
         const [rows] = await pool.execute(
-            'SELECT movie_id, title, release_year, rating, length, description, image FROM movies ORDER BY title'
+            'SELECT movie_id, title, release_year, rating, length, description, poster AS image FROM movies ORDER BY title'
         );
-        // image is a LONGBLOB, so send it as base64 text
+        // sends image as text
         const movies = (rows as any[]).map((row) => ({
             ...row,
             image: row.image ? Buffer.from(row.image).toString('base64') : null,
@@ -221,6 +243,113 @@ app.get('/api/showings', async (_req, res) => {
     } catch (error) {
         console.error('Showings error:', error);
         res.status(500).json({ error: 'Could not load showings' });
+    }
+});
+
+// Add movie endpoint (admins only)
+app.post('/api/movies', async (req, res) => {
+    if (!await authorizeAdmin(req, res)) {
+        return;
+    }
+
+    // Read the form fields, the poster comes in as base64 text, so turn it back into image bytes
+    const title = String(req.body.title ?? '').trim();
+    const description = String(req.body.description ?? '').trim();
+    const image = Buffer.from(String(req.body.image ?? ''), 'base64');
+
+    if (!title || title.length > 255) {
+        return res.status(400).json({ error: 'Title is required and must be 255 characters or fewer' });
+    }
+    if (!description) {
+        return res.status(400).json({ error: 'Synopsis is required' });
+    }
+    if (image.length === 0) {
+        return res.status(400).json({ error: 'A poster image is required' });
+    }
+
+    let connection;
+
+    try {
+        connection = await pool.getConnection();
+
+        // movie_id is not auto-increment, so assign the next one
+        const [maxRows] = await connection.execute('SELECT COALESCE(MAX(movie_id), 0) + 1 AS next_id FROM movies');
+        const movieId = Number((maxRows as any[])[0].next_id);
+
+        // The form does not ask for these yet, so use placeholders
+        const releaseYear = new Date().getFullYear();
+        const rating = 'NR';
+        const length = 0;
+
+        await connection.execute(
+            'INSERT INTO movies (movie_id, title, release_year, rating, length, description, poster) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [movieId, title, releaseYear, rating, length, description, image]
+        );
+
+        res.status(201).json({ movie: { movie_id: movieId, title } });
+    } catch (error) {
+        console.error('Add movie error:', error);
+        res.status(500).json({ error: 'Could not add the movie' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+// Add showing endpoint (admins only)
+app.post('/api/showings', async (req, res) => {
+    if (!await authorizeAdmin(req, res)) {
+        return;
+    }
+
+    const movieId = Number(req.body.movieId);
+    const showtime = String(req.body.showtime ?? '');
+    // The form does not pick a theater yet, so every showing goes to theater 1
+    const theaterId = 1;
+
+    if (!Number.isSafeInteger(movieId) || movieId < 1) {
+        return res.status(400).json({ error: 'A valid movie is required' });
+    }
+    // showtime is a DATETIME, so it has to look like 2026-10-24 19:30:00
+    const hasRightShape =
+        showtime.length === 19 &&   // "2026-10-24 19:30:00" is 19 characters
+        showtime[4] === '-' &&      // dash after the year
+        showtime[7] === '-' &&      // dash after the month
+        showtime[10] === ' ' &&     // space between the date and the time
+        showtime[13] === ':' &&     // colon after the hour
+        showtime[16] === ':';       // colon after the minutes
+
+    // new Date() gives "Invalid Date" for things like month 13 or hour 99
+    const isRealDate = !isNaN(new Date(showtime.replace(' ', 'T')).getTime());
+
+    if (!hasRightShape || !isRealDate) {
+        return res.status(400).json({ error: 'Showtime must be a valid date and time' });
+    }
+
+    let connection;
+
+    try {
+        connection = await pool.getConnection();
+
+        const [movies] = await connection.execute('SELECT movie_id FROM movies WHERE movie_id = ?', [movieId]);
+        if ((movies as any[]).length === 0) {
+            return res.status(400).json({ error: 'The selected movie does not exist' });
+        }
+
+        // showing_id is not auto-increment, so assign the next one
+        const [maxRows] = await connection.execute('SELECT COALESCE(MAX(showing_id), 0) + 1 AS next_id FROM showing');
+        const showingId = Number((maxRows as any[])[0].next_id);
+
+        await connection.execute(
+            'INSERT INTO showing (showing_id, movie_id, showtime, theater_id) VALUES (?, ?, ?, ?)',
+            [showingId, movieId, showtime, theaterId]
+        );
+
+        res.status(201).json({ showingId });
+    } catch (error) {
+        console.error('Add showing error:', error);
+        res.status(500).json({ error: 'Could not add the showing' });
+    } finally {
+        if (connection) connection.release();
     }
 });
 
@@ -265,7 +394,7 @@ app.post('/api/purchase', async (req, res) => {
             const [maxRows] = await connection.execute('SELECT COALESCE(MAX(users_id), 0) + 1 AS next_id FROM users');
             userId = Number((maxRows as any[])[0].next_id);
             await connection.execute(
-                'INSERT INTO users (users_id, first_name, last_name, email_address, password, employee_permission, admin_permission, theater_id) VALUES (?, ?, ?, \'\', \'\', 0, 0, NULL)',
+                'INSERT INTO users (users_id, first_name, last_name, email_address, password, employee_permission, admin_permission, theater_name) VALUES (?, ?, ?, \'\', \'\', 0, 0, NULL)',
                 [userId, firstName, lastName]
             );
         } else {
@@ -323,6 +452,9 @@ app.post('/api/account', async (req, res) => {
     if (!firstName || !lastName || !email || !password) {
         return res.status(400).json({ error: 'First name, last name, email, and password are required' });
     }
+    if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
 
     // These columns are all VARCHAR(45)
     if (firstName.length > 45 || lastName.length > 45 || email.length > 45 || password.length > 45) {
@@ -346,7 +478,7 @@ app.post('/api/account', async (req, res) => {
         const userId = Number((maxRows as any[])[0].next_id);
 
         await connection.execute(
-            'INSERT INTO users (users_id, first_name, last_name, email_address, password, employee_permission, admin_permission, theater_id) VALUES (?, ?, ?, ?, ?, 0, 0, NULL)',
+            'INSERT INTO users (users_id, first_name, last_name, email_address, password, employee_permission, admin_permission, theater_name) VALUES (?, ?, ?, ?, ?, 0, 0, NULL)',
             [userId, firstName, lastName, email, hashPassword(password)]
         );
 
@@ -385,9 +517,9 @@ app.post('/api/login', async (req, res) => {
         connection = await pool.getConnection();
         const [rows] = await connection.execute(
             `SELECT users.users_id, users.first_name, users.last_name, users.email_address, users.password,
-                    users.employee_permission, users.admin_permission, users.theater_id, theaters.theater_name
+                    users.employee_permission, users.admin_permission, users.theater_name, theaters.theater_id
              FROM users
-             LEFT JOIN theaters ON theaters.theater_id = users.theater_id
+             LEFT JOIN theaters ON theaters.theater_name = users.theater_name
              WHERE users.email_address = ? LIMIT 1`,
             [email]
         );
@@ -425,9 +557,9 @@ app.get('/api/account/:id', async (req, res) => {
         connection = await pool.getConnection();
         const [rows] = await connection.execute(
             `SELECT users.users_id, users.first_name, users.last_name, users.email_address,
-                    users.employee_permission, users.admin_permission, users.theater_id, theaters.theater_name
+                    users.employee_permission, users.admin_permission, users.theater_name, theaters.theater_id
              FROM users
-             LEFT JOIN theaters ON theaters.theater_id = users.theater_id
+             LEFT JOIN theaters ON theaters.theater_name = users.theater_name
              WHERE users.users_id = ?`,
             [accountId]
         );
@@ -495,24 +627,30 @@ app.put('/api/account/:id', async (req, res) => {
         if (!password) {
             return res.status(400).json({ error: 'Password cannot be empty' });
         }
+        if (password.length < 8) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters' });
+        }
         if (password.length > 45) {
             return res.status(400).json({ error: 'Password can only be 45 characters' });
         }
         updates.push('password = ?');
         values.push(hashPassword(password));
     }
+    // users stores the theater by name, so the name gets filled in once we look it up below
+    let theaterNameIndex = -1;
     if (req.body.theaterId !== undefined) {
         const rawTheaterId = req.body.theaterId;
         if (rawTheaterId === null || rawTheaterId === '') {
-            updates.push('theater_id = ?');
+            updates.push('theater_name = ?');
             values.push(null);
         } else {
             const theaterId = Number(rawTheaterId);
             if (!Number.isSafeInteger(theaterId) || theaterId < 1) {
                 return res.status(400).json({ error: 'Theater id must be a positive number or null' });
             }
-            updates.push('theater_id = ?');
-            values.push(theaterId);
+            updates.push('theater_name = ?');
+            theaterNameIndex = values.length;
+            values.push(null);
         }
     }
 
@@ -535,14 +673,15 @@ app.put('/api/account/:id', async (req, res) => {
                 return res.status(409).json({ error: 'An account with that email already exists' });
             }
         }
-        if (req.body.theaterId !== undefined && req.body.theaterId !== null && req.body.theaterId !== '') {
+        if (theaterNameIndex !== -1) {
             const [theaters] = await connection.execute(
-                'SELECT theater_id FROM theaters WHERE theater_id = ?',
+                'SELECT theater_name FROM theaters WHERE theater_id = ?',
                 [Number(req.body.theaterId)]
             );
             if ((theaters as any[]).length === 0) {
                 return res.status(400).json({ error: 'The selected theater does not exist' });
             }
+            values[theaterNameIndex] = (theaters as any[])[0].theater_name;
         }
 
         values.push(accountId);
@@ -556,9 +695,9 @@ app.put('/api/account/:id', async (req, res) => {
 
         const [rows] = await connection.execute(
             `SELECT users.users_id, users.first_name, users.last_name, users.email_address,
-                    users.employee_permission, users.admin_permission, users.theater_id, theaters.theater_name
+                    users.employee_permission, users.admin_permission, users.theater_name, theaters.theater_id
              FROM users
-             LEFT JOIN theaters ON theaters.theater_id = users.theater_id
+             LEFT JOIN theaters ON theaters.theater_name = users.theater_name
              WHERE users.users_id = ?`,
             [accountId]
         );
