@@ -33,6 +33,7 @@ function App() {
                 <Route path="createAccount" element={<CreateAccount />} />
                 <Route path="addshowtime" element={<AddShowtime />} />
                 <Route path="admin" element={<Admin />} />
+                <Route path="purchaseConfirm" element={<PurchaseConfirm />} />
                 <Route element={<AccountLayout />}>
                     <Route path="account" element={<Account />} />
                     <Route path="change" element={<Change />} />
