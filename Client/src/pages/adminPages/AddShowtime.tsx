@@ -121,6 +121,11 @@ export default function AddShowtime() {
                 <input type="file" id="movie-poster" name="movie-poster" accept="image/*" required />
                 <button type="submit">Add Movie</button>
             </form>
+            <h1 style={{ textAlign: "center" }}>Add a Format</h1>
+            <form className="form">
+                <input type="text" name="title" placeholder="Movie Title" required />
+                <button type="submit">Add Format</button>
+            </form>
             <br/>
             <h1 style={{ textAlign: "center" }}>Add a Showtime</h1>
             <form className="form" onSubmit={handleShowtimeSubmit}>
@@ -130,6 +135,9 @@ export default function AddShowtime() {
                             {movie.title}
                         </option>
                     ))}
+                </select>
+                <select name="format" required>
+                    <option>Format 1</option>
                 </select>
                 <input type="date" name="date" required />
                 <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
@@ -159,6 +167,10 @@ export default function AddShowtime() {
                     </select>
                 </div>
                 <button type="submit">Add Showtime</button>
+            </form>
+            <form className="form">
+                <input type="file" id="csv" name="csv" accept="image/*" required />
+                <button type="submit">Add Showtimes</button>
             </form>
         </div>
     )
