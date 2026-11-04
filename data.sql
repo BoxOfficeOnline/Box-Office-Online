@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS `formats` (
   `format_id` int NOT NULL,
   `theater_id` int NOT NULL,
   `format_name` varchar(45) NOT NULL,
-  `price` decimal(10,2) NOT NULL,
+  `price` int NOT NULL,
   `format_description` varchar(255) NOT NULL,
   `purchase_ids` int DEFAULT NULL,
   PRIMARY KEY (`format_id`),
