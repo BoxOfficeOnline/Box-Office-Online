@@ -6,7 +6,7 @@ Box Office Online is a movie-ticketing web application. Its React client provide
 
 - `Client/` — React 19, TypeScript, and Vite single-page application.
 - `Server/` — Express 5 API written in TypeScript.
-- `data.sql` — SQL definitions for the `theaters`, `movies`, `users`, `showing`, and `tickets` tables and their foreign keys.
+- `data.sql` — SQL definitions for the `theaters`, `movies`, `users`, `formats`, `showing`, `purchases`, and `tickets` tables and their foreign keys.
 
 ## Requirements
 
@@ -93,9 +93,10 @@ The API listens on `PORT` if provided, otherwise port `5000`.
 | `GET` | `/` | API health response. |
 | `GET` | `/api/barcode` | Generate a PNG barcode; accepts `text`, `type`, `scale`, `height`, `includetext`, and `textalign` query parameters. |
 | `GET` | `/api/theaters` | List theaters for account assignment. |
+| `GET` | `/api/formats` | List ticket formats, optionally filtered by `theaterId`. |
 | `GET` | `/api/movies` | List movies. |
-| `GET` | `/api/showings` | List showtimes with movie and theater details. |
-| `POST` | `/api/purchase` | Create a ticket purchase. |
+| `GET` | `/api/showings` | List showtimes with movie, theater, and format details. |
+| `POST` | `/api/purchase` | Create a purchase and its associated ticket in one transaction. |
 | `POST` | `/api/validate` | Check whether a ticket ID exists. |
 | `POST` | `/api/account` | Create an account. |
 | `POST` | `/api/login` | Log in and return an account and session token. |
@@ -106,6 +107,8 @@ The API listens on `PORT` if provided, otherwise port `5000`.
 | `DELETE` | `/api/account/:id` | Delete an account and its tickets. |
 
 Account-specific endpoints require a valid session for that account or an administrator session. API sessions are held in server memory and are cleared when the server restarts.
+
+The database script describes the current schema for a new database. It is not a migration script; back up and migrate existing databases before applying schema changes. The showtime admin form requires formats to exist for each theater before showings can be added.
 
 ## Deployment notes
 
