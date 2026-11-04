@@ -139,6 +139,9 @@ export default function MovieListing() {
                         <label>
                             Ticket Total: <input name="ticketTotal" type="number" min="1" step="1" defaultValue="1" required />
                         </label>
+                        <div>
+                            Price: x
+                        </div>
                         <button type="submit" disabled={loading}>
                             {loading ? "Purchasing..." : "Purchase"}
                         </button>

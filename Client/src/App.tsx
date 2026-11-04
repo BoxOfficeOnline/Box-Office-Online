@@ -5,6 +5,7 @@ import Home from './pages/Home.tsx'
 import MovieListing from './pages/MovieListing.tsx'
 import Scan from './pages/Scan.tsx'
 import Purchase from './pages/Purchase.tsx'
+import PurchaseConfirm from './pages/PurchaseConfirm.tsx'
 import Showtimes from './pages/Showtimes.tsx'
 import Login from './pages/Login.tsx'
 import CreateAccount from './pages/CreateAccount.tsx'
@@ -15,6 +16,7 @@ import Change from './pages/accountPages/Change.tsx'
 import Tickets from './pages/accountPages/Tickets.tsx'
 import Logout from './pages/accountPages/Logout.tsx'
 import Delete from './pages/accountPages/Delete.tsx'
+
 import './components/App.css'
 
 function App() {
@@ -31,6 +33,7 @@ function App() {
                 <Route path="createAccount" element={<CreateAccount />} />
                 <Route path="addshowtime" element={<AddShowtime />} />
                 <Route path="admin" element={<Admin />} />
+                <Route path="purchaseConfirm" element={<PurchaseConfirm />} />
                 <Route element={<AccountLayout />}>
                     <Route path="account" element={<Account />} />
                     <Route path="change" element={<Change />} />

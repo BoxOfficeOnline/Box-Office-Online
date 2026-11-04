@@ -35,7 +35,24 @@
 }
 
 .showtimes-header {
-    display: flex;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
     align-items: center;
+    gap: 1rem;
+}
+
+.showtimes-header h1 {
+    justify-self: center;
+}
+
+.showtimes-header form.form {
     flex-direction: row;
+    justify-content: center;
+    margin-top: 0;
+}
+
+.showtimes-header form.form input,
+.showtimes-header form.form select {
+    box-sizing: border-box;
+    height: 36px;
 }
