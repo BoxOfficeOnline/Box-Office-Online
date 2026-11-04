@@ -8,6 +8,18 @@ type Movie = {
     title: string
 }
 
+type Theater = {
+    theater_id: number
+    theater_name: string
+}
+
+type Format = {
+    format_id: number
+    theater_id: number
+    format_name: string
+    price: number
+}
+
 // Sends the image file as text
 function readImage(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -20,6 +32,9 @@ function readImage(file: File): Promise<string> {
 
 export default function AddShowtime() {
     const [movies, setMovies] = useState<Movie[]>([])
+    const [theaters, setTheaters] = useState<Theater[]>([])
+    const [formats, setFormats] = useState<Format[]>([])
+    const [theaterId, setTheaterId] = useState("")
 
     const loadMovies = () => {
         accountFetch("/api/movies")
@@ -36,9 +51,53 @@ export default function AddShowtime() {
             })
     }
 
+    const loadTheaters = () => {
+        accountFetch("/api/theaters")
+            .then(({ response, data }) => {
+                if (!response.ok) {
+                    alert(data.error || "Could not load theaters.")
+                    return
+                }
+                setTheaters(data.theaters as Theater[])
+            })
+            .catch((error) => {
+                console.error("Theaters error:", error)
+                alert("Could not load theaters. The server did not respond.")
+            })
+    }
+
     useEffect(() => {
         loadMovies()
+        loadTheaters()
     }, [])
+
+    useEffect(() => {
+        if (!theaterId) {
+            return
+        }
+        let active = true
+        accountFetch(`/api/formats?theaterId=${theaterId}`)
+            .then(({ response, data }) => {
+                if (!response.ok) {
+                    if (active) {
+                        alert(data.error || "Could not load formats.")
+                    }
+                    return
+                }
+                if (active) {
+                    setFormats(data.formats as Format[])
+                }
+            })
+            .catch((error) => {
+                console.error("Formats error:", error)
+                if (active) {
+                    alert("Could not load formats. The server did not respond.")
+                }
+            })
+        return () => {
+            active = false
+        }
+    }, [theaterId])
 
     const handleMovieSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault()
@@ -97,6 +156,8 @@ export default function AddShowtime() {
                 method: "POST",
                 body: JSON.stringify({
                     movieId: Number(formData.get("movieId")),
+                    theaterId: Number(formData.get("theaterId")),
+                    formatId: Number(formData.get("formatId")),
                     showtime,
                 }),
             })
@@ -128,6 +189,30 @@ export default function AddShowtime() {
                     {movies.map((movie) => (
                         <option key={movie.movie_id} value={movie.movie_id}>
                             {movie.title}
+                        </option>
+                    ))}
+                </select>
+                <select
+                    name="theaterId"
+                    value={theaterId}
+                    onChange={(event) => {
+                        setTheaterId(event.target.value)
+                        setFormats([])
+                    }}
+                    required
+                >
+                    <option value="" disabled>Select a theater</option>
+                    {theaters.map((theater) => (
+                        <option key={theater.theater_id} value={theater.theater_id}>
+                            {theater.theater_name}
+                        </option>
+                    ))}
+                </select>
+                <select name="formatId" required defaultValue="" disabled={!formats.length}>
+                    <option value="" disabled>Select a format</option>
+                    {formats.map((format) => (
+                        <option key={format.format_id} value={format.format_id}>
+                            {format.format_name} (${Number(format.price).toFixed(2)})
                         </option>
                     ))}
                 </select>
