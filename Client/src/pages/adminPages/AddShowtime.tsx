@@ -123,7 +123,7 @@ export default function AddShowtime() {
             </form>
             <h1 style={{ textAlign: "center" }}>Add a Format</h1>
             <form className="form">
-                <input type="text" name="title" placeholder="Movie Title" required />
+                <input type="text" name="title" placeholder="Format Title" required />
                 <button type="submit">Add Format</button>
             </form>
             <br/>

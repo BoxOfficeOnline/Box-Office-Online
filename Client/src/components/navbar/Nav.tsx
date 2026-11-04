@@ -45,27 +45,44 @@ function Nav() {
                 <Link to="/showtimes">
                     Showtimes
                 </Link>
-                <Link to="/scan">
-                    Scan Tickets
-                </Link>
-                <Link to="/account">
-                    Account Test
-                </Link>
-                {admin && (
-                    <Link to="/addshowtime">
-                        Admin Dashboard
-                    </Link>
-                )}
+                <select className="navDropdown">
+                    <label></label>
+                    <option>
+                        <Link to="/account">
+                            Account Dashboard
+                        </Link>
+                    </option>
+                    <option>
+                        <Link to="/logout">
+                            Log Out
+                        </Link>
+                    </option>
+                </select>
             </div>
             <div style={{ display: 'flex', marginLeft: 'auto' }}>
-                {!loggedIn && (
-                    <Link to="/login">
-                        Log In
-                    </Link>
+                {!loggedIn ? (
+                    <>
+                        <Link to="/login">
+                            Log In
+                        </Link>
+                        <Link to="/createAccount">
+                            Create Account
+                        </Link>
+                    </>
+                ) : (
+                    <select className="navDropdown">
+                        <option>
+                            <Link to="/account">
+                                Account Dashboard
+                            </Link>
+                        </option>
+                        <option>
+                            <Link to="/logout">
+                                Log Out
+                            </Link>
+                        </option>
+                    </select>
                 )}
-                <Link to="/createAccount">
-                    Create Account
-                </Link>
             </div>
         </nav>
     )

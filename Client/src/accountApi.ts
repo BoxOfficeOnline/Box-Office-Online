@@ -36,6 +36,11 @@ export function saveAdminPermission(adminPermission: boolean) {
     window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
+export function saveEmployeePermission(employeePermission: boolean) {
+    localStorage.setItem("employeePermission", String(employeePermission));
+    window.dispatchEvent(new Event(SESSION_EVENT));
+}
+
 export function getAccountId() {
     return localStorage.getItem("accountId");
 }
@@ -43,6 +48,10 @@ export function getAccountId() {
 // Only decides what the page shows; the server still checks admin_permission itself
 export function isAdmin() {
     return localStorage.getItem("adminPermission") === "true";
+}
+
+export function isEmployee() {
+    return localStorage.getItem("employeePermission") === "true";
 }
 
 export async function accountFetch(path: string, options: RequestInit = {}) {

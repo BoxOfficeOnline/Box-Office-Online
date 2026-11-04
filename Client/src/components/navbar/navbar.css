@@ -36,3 +36,11 @@
     margin-left: 20px;
     gap: 20px;
 }
+
+.navDropdown {
+    position: relative;
+    display: inline-block;
+    border: 0px;
+    padding: 5px;
+    font-size: 16px;
+}
