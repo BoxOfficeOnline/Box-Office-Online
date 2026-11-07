@@ -4,11 +4,14 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
 import crypto from 'crypto';
+import Stripe from 'stripe';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 
 dotenv.config();
+
+const stripe = new Stripe(process.env.STRIPE_SECRET!);
 
 app.use(cors());
 // Movie posters need a bigger limit
@@ -233,10 +236,12 @@ app.get('/api/showings', async (_req, res) => {
     try {
         const [rows] = await pool.execute(
             `SELECT showing.showing_id, showing.movie_id, showing.showtime, showing.theater_id,
-                    movies.title, theaters.theater_name, theaters.theater_location
+                    movies.title, theaters.theater_name, theaters.theater_location,
+                    showing.formats_id, formats.format_name, formats.price, formats.format_description
              FROM showing
              JOIN movies ON movies.movie_id = showing.movie_id
              JOIN theaters ON theaters.theater_id = showing.theater_id
+             LEFT JOIN formats ON formats.format_id = showing.formats_id
              ORDER BY showing.showtime`
         );
         res.json({ showings: rows });
@@ -355,10 +360,13 @@ app.post('/api/showings', async (req, res) => {
 
 // Purchase endpoint
 app.post('/api/purchase', async (req, res) => {
-    const firstName = String(req.body.firstName ?? '').trim();
-    const lastName = String(req.body.lastName ?? '').trim();
-    const ticketTotal = Number(req.body.ticketTotal);
-    const showingId = Number(req.body.showingId);
+    // After Stripe checkout the order details come back on the session
+    const session = req.body.sessionId ? await stripe.checkout.sessions.retrieve(req.body.sessionId, { expand: ['payment_intent.latest_charge'] }) : null;
+    const body = session ? session.metadata as any : req.body;
+    const firstName = String(body.firstName ?? '').trim();
+    const lastName = String(body.lastName ?? '').trim();
+    const ticketTotal = Number(body.ticketTotal);
+    const showingId = Number(body.showingId);
 
     if (!firstName || !lastName || firstName.length > 45 || lastName.length > 45) {
         return res.status(400).json({ error: 'First and last name are required and must be 45 characters or fewer' });
@@ -375,7 +383,7 @@ app.post('/api/purchase', async (req, res) => {
     try {
         connection = await pool.getConnection();
         const [showings] = await connection.execute(
-            'SELECT movie_id FROM showing WHERE showing_id = ?',
+            'SELECT showing.movie_id, COALESCE(formats.price, 1) AS price FROM showing LEFT JOIN formats ON formats.format_id = showing.formats_id WHERE showing_id = ?',
             [showingId]
         );
         if ((showings as any[]).length === 0) {
@@ -383,12 +391,42 @@ app.post('/api/purchase', async (req, res) => {
         }
         const movieId = Number((showings as any[])[0].movie_id);
 
+        // Send them to Stripe first, showings without a format are $1
+        if (!session) {
+            const origin = req.get('origin') || 'http://localhost:5173';
+            const checkout = await stripe.checkout.sessions.create({
+                mode: 'payment',
+                line_items: [{ quantity: ticketTotal, price_data: { currency: 'usd', unit_amount: (showings as any[])[0].price * 100, product_data: { name: 'Movie ticket' } } }],
+                success_url: `${origin}/purchase?session_id={CHECKOUT_SESSION_ID}`,
+                cancel_url: `${origin}/movies`,
+                metadata: { firstName, lastName, ticketTotal: String(ticketTotal), showingId: String(showingId) }
+            });
+            return res.json({ url: checkout.url });
+        }
+        if (session.payment_status !== 'paid') {
+            return res.status(400).json({ error: 'The payment was not completed' });
+        }
+        const charge = (session.payment_intent as any).latest_charge;
+
+        // Reloading the thank you page should not save the ticket again
+        const [purchases] = await connection.execute(
+            'SELECT tickets.ticket_id FROM purchases JOIN tickets ON tickets.purchase_id = purchases.purchase_id WHERE purchases.charge_id = ?',
+            [charge.id]
+        );
+        if ((purchases as any[]).length > 0) {
+            return res.json({ ticketId: (purchases as any[])[0].ticket_id, receiptUrl: charge.receipt_url });
+        }
+
         const [users] = await connection.execute(
             'SELECT users_id FROM users WHERE first_name = ? AND last_name = ? LIMIT 1',
             [firstName, lastName]
         );
+        // Logged in buyers get the ticket on their own account
+        const login = sessions.get(readSessionToken(req) ?? '');
         let userId: number;
-        if ((users as any[]).length === 0) {
+        if (login) {
+            userId = login.userId;
+        } else if ((users as any[]).length === 0) {
             // No matching user yet, so create one for this ticket
             // users_id is not auto-increment, so assign the next one
             const [maxRows] = await connection.execute('SELECT COALESCE(MAX(users_id), 0) + 1 AS next_id FROM users');
@@ -401,13 +439,17 @@ app.post('/api/purchase', async (req, res) => {
             userId = (users as any[])[0].users_id;
         }
 
+        const [purchase] = await connection.execute(
+            'INSERT INTO purchases (payment_method, payment_made, charge_id) VALUES (\'card\', 1, ?)',
+            [charge.id]
+        );
         const ticketId = crypto.randomBytes(16).toString('hex');
 
         await connection.execute(
-            'INSERT INTO tickets (ticket_id, movie_id, showing_id, user_id, purchase_time, ticket_amount) VALUES (?, ?, ?, ?, NOW(), ?)',
-            [ticketId, movieId, showingId, userId, ticketTotal]
+            'INSERT INTO tickets (ticket_id, movie_id, showing_id, user_id, purchase_time, ticket_amount, purchase_id) VALUES (?, ?, ?, ?, NOW(), ?, ?)',
+            [ticketId, movieId, showingId, userId, ticketTotal, (purchase as any).insertId]
         );
-        res.json({ ticketId, message: 'Purchase successful' });
+        res.json({ ticketId, receiptUrl: charge.receipt_url, message: 'Purchase successful' });
     } catch (error) {
         console.error('Purchase error:', error);
         res.status(500).json({ error: 'Purchase failed' });

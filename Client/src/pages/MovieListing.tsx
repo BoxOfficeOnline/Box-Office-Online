@@ -1,10 +1,11 @@
 import type { SyntheticEvent } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "../components/App.css"
 import wallE from '../assets/WALL-E.webp';
 import "../components/MovieListing.css"
 import { posterSrc } from "../posterSrc.ts"
+import { accountFetch, getAccountId, type Account } from "../accountApi.ts"
 
 type Movie = {
     movie_id: number;
@@ -28,7 +29,6 @@ const API_BASE = import.meta.env.DEV
 
 
 export default function MovieListing() {
-    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     // Set when you come here from a movie on the Showtimes page
     const movieId = Number(searchParams.get("movieId")) || null;
@@ -37,6 +37,15 @@ export default function MovieListing() {
     const [loadingShowings, setLoadingShowings] = useState(true);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
+    const [account, setAccount] = useState<Account | null>(null);
+
+    useEffect(() => {
+        // Fill in the name for logged in users
+        const id = getAccountId();
+        if (id) {
+            accountFetch(`/api/account/${id}`).then(({ response, data }) => response.ok && setAccount(data.account));
+        }
+    }, []);
 
     useEffect(() => {
         fetch(`${API_BASE}/api/showings`)
@@ -92,7 +101,7 @@ export default function MovieListing() {
 
             const data = await response.json();
             if (response.ok) {
-                navigate(`/purchase/${data.ticketId}`);
+                window.location.href = data.url;
             } else {
                 setMessage(data.error || "Purchase failed.");
             }
@@ -121,11 +130,11 @@ export default function MovieListing() {
                         <div className="invalid">{message || "There are no showings available."}</div>
                     ) : (
                     <form className="form" onSubmit={handleSubmit}>
-                        <label>First Name: <input name="firstName" maxLength={45} required /></label>
-                        <label>Last Name: <input name="lastName" maxLength={45} required /></label>
+                        <label>First Name: <input name="firstName" key={account?.firstName} defaultValue={account?.firstName} maxLength={45} required /></label>
+                        <label>Last Name: <input name="lastName" key={account?.lastName} defaultValue={account?.lastName} maxLength={45} required /></label>
                         <label>
                             Showing:
-                            <select name="showingId" required defaultValue="">
+                            <select name="showingId" required defaultValue={searchParams.get("showingId") ?? ""}>
                                 <option value="" disabled>Select a showing</option>
                                 {showings.map((showing) => (
                                     <option key={showing.showing_id} value={showing.showing_id}>

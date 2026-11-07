@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import "../components/App.css"
 import "../components/Showtime.css"
 import { accountFetch, getAccountId } from "../accountApi.ts"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import wallE from '../assets/WALL-E.webp';
 import { posterSrc } from "../posterSrc.ts"
 
@@ -28,6 +28,7 @@ function toDateValue(showtime: string) {
 }
 
 export default function Showtimes() {
+    const navigate = useNavigate()
     const [movies, setMovies] = useState<Movie[]>([])
     const [showings, setShowings] = useState<Showing[]>([])
     const [date, setDate] = useState("")
@@ -79,7 +80,7 @@ export default function Showtimes() {
                                 .filter((showing) => showing.movie_id === movie.movie_id)
                                 .filter((showing) => !date || toDateValue(showing.showtime) === date)
                                 .map((showing) => (
-                                    <button key={showing.showing_id}>
+                                    <button key={showing.showing_id} onClick={() => navigate(`/movies?movieId=${movie.movie_id}&showingId=${showing.showing_id}`)}>
                                         {new Date(showing.showtime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                                     </button>
                                 ))}
