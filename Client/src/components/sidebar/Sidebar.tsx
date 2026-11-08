@@ -54,7 +54,7 @@ function Sidebar() {
                     Change Account Info
                 </Link>
                 <Link to="/tickets">
-                    Tickets
+                    My Tickets
                 </Link>
                 <Link to="/logout">
                     Log Out

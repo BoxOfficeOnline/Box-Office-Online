@@ -44,6 +44,7 @@ export default function Tickets() {
 
     return (
         <div className="accountPage">
+            {/*
             {tickets.map((ticket) => (
                 <div key={ticket.ticket_id}>
                     {ticket.title || "Ticket"} {ticket.ticket_id}
@@ -51,6 +52,9 @@ export default function Tickets() {
                     {` — ${ticket.ticket_amount} ticket${ticket.ticket_amount === 1 ? "" : "s"}`}
                 </div>
             ))}
+            */}
+            
+
             {message && <div className={ok ? "valid" : "invalid"}>{message}</div>}
         </div>
     )

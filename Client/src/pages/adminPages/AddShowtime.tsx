@@ -111,6 +111,36 @@ export default function AddShowtime() {
         }
     }
 
+    const handleShowtimeCSV = async (e: SyntheticEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        if (!getAccountId()) {
+            alert("You need to log in first.")
+            return
+        }
+
+        const formData = new FormData(e.currentTarget)
+        const csvFile = formData.get("csv")
+        if (!(csvFile instanceof File) || csvFile.size === 0) {
+            alert("Choose a CSV file first.")
+            return
+        }
+
+        try {
+            const { response, data } = await accountFetch("/api/showings/csv", {
+                method: "POST",
+                body: csvFile,
+            })
+            if (response.ok) {
+                alert("Showtimes added from CSV.")
+            } else {
+                alert(data.error || "Could not add showtimes from CSV.")
+            }
+        } catch (error) {
+            console.error("Add showtimes from CSV error:", error)
+            alert("Could not add showtimes from CSV. The server did not respond.")
+        }
+    }
+
     return (
 
         <div>
@@ -168,9 +198,9 @@ export default function AddShowtime() {
                 </div>
                 <button type="submit">Add Showtime</button>
             </form>
-            <form className="form">
+            <form className="form" onSubmit={handleShowtimeCSV}>
                 <input type="file" id="csv" name="csv" accept="image/*" required />
-                <button type="submit">Add Showtimes</button>
+                <button type="submit">Add Showtimes with CSV</button>
             </form>
         </div>
     )

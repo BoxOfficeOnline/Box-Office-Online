@@ -49,23 +49,13 @@ export default function Home() {
     return (
         <body className="homePage">
             <div className="theaterBar">
-                <h1>Our Theaters</h1>
-                {theaters.length > 0 ? (
-                    <ul className="theaterList">
-                        {theaters.map((theater) => (
-                            <li key={theater.theater_id} className="theaterInfo">
-                                <h2>{theater.theater_name}</h2>
-                                <p>{theater.theater_location}</p>
-                            </li>
-                        ))}
-                    </ul>
-                ) : (
-                    <p className="homeMessage">Theater information is not available.</p>
-                )}
+                <h1>Theater Name</h1>
+                <p>Theater Address</p>
             </div>
-
-            <div className="movieSection">
+            <div id="nowShowing">
                 <h2 id="now-showing-heading">Now Showing</h2>
+            </div>
+            <div className="nowShowing">
                 {movies.length > 0 ? (
                     <div className="moviePosters">
                         {movies.map((movie) => (
@@ -83,7 +73,7 @@ export default function Home() {
                         ))}
                     </div>
                 ) : (
-                    <p className="homeMessage">
+                    <p id="homeMessage">
                         {message || "There are no movies available right now."}
                     </p>
                 )}

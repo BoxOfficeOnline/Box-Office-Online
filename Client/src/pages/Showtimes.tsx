@@ -10,6 +10,9 @@ type Movie = {
     movie_id: number
     title: string
     description: string
+    length : number
+    release_year : number
+    rating : string
     image: string | null
 }
 
@@ -79,7 +82,10 @@ export default function Showtimes() {
                             </Link>
                         </div>
                         <div id="synopsis">
+                            <h2>{movie.title}</h2>
+                            <h3>Synopsis</h3>
                             <p>{movie.description}</p>
+                            <p>{movie.release_year} | {movie.length} min | {movie.rating}</p>
                         </div>
                         <div id="times">
                             {showings

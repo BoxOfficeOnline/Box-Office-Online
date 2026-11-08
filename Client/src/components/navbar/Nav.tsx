@@ -38,26 +38,22 @@ function Nav() {
         <nav className="navbar">
             <img src={kuLogo} alt="KU Logo" className="navLogo"/>
             <img src={logo} alt="BOO Logo" className="navLogo"/>
-            <div className="navLinks">
+            <div className="navLinks" style={{ paddingLeft: '20px' }}>
                 <Link to="/">
                     Home
                 </Link>
                 <Link to="/showtimes">
                     Showtimes
                 </Link>
-                <select className="navDropdown">
-                    <label></label>
-                    <option>
-                        <Link to="/account">
-                            Account Dashboard
-                        </Link>
-                    </option>
-                    <option>
-                        <Link to="/logout">
-                            Log Out
-                        </Link>
-                    </option>
-                </select>
+                <Link to="/account">
+                    Account test
+                </Link>
+            <details className="navAccountDropdown">
+                <summary>Our Theaters</summary>
+                <div className="navAccountMenu">
+                    
+                </div>
+            </details>
             </div>
             <div style={{ display: 'flex', marginLeft: 'auto' }}>
                 {!loggedIn ? (
@@ -70,18 +66,17 @@ function Nav() {
                         </Link>
                     </>
                 ) : (
-                    <select className="navDropdown">
-                        <option>
+                    <details className="navAccountDropdown">
+                        <summary>My Account</summary>
+                        <div className="navAccountMenu">
                             <Link to="/account">
                                 Account Dashboard
                             </Link>
-                        </option>
-                        <option>
                             <Link to="/logout">
                                 Log Out
                             </Link>
-                        </option>
-                    </select>
+                        </div>
+                    </details>
                 )}
             </div>
         </nav>
