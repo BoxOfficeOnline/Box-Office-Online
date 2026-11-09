@@ -541,9 +541,9 @@ app.post('/api/purchase', async (req, res) => {
     if (!Number.isSafeInteger(showingId) || showingId < 1) {
         return res.status(400).json({ error: 'A valid showing is required' });
     }
-    if (!paymentMethod || paymentMethod.length > 45) {
-        return res.status(400).json({ error: 'Payment method is required and must be 45 characters or fewer' });
-    }
+ //   if (!paymentMethod || paymentMethod.length > 45) {
+ //       return res.status(400).json({ error: 'Payment method is required and must be 45 characters or fewer' });
+ //   }
 
     let connection;
     let transactionStarted = false;
