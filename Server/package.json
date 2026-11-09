@@ -29,7 +29,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^25.6.0",
     "concurrently": "^9.2.1",
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.11"
   },
   "allowScripts": {
     "nodemon@1.19.4": true

@@ -1,5 +1,5 @@
 import type { SyntheticEvent } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "../components/App.css"
 import wallE from '../assets/WALL-E.webp';
@@ -20,6 +20,8 @@ type Showing = {
     title: string;
     theater_name: string;
     theater_location: string;
+    format_name: string;
+    price: number;
 };
 
 const API_BASE = import.meta.env.DEV
@@ -129,7 +131,7 @@ export default function MovieListing() {
                                 <option value="" disabled>Select a showing</option>
                                 {showings.map((showing) => (
                                     <option key={showing.showing_id} value={showing.showing_id}>
-                                        {showing.title} - {showing.theater_name} ({showing.theater_location}) - {new Date(showing.showtime).toLocaleString()}
+                                        {showing.title} - {showing.theater_name} ({showing.theater_location}) - {showing.format_name} (${Number(showing.price).toFixed(2)}) - {new Date(showing.showtime).toLocaleString()}
                                     </option>
                                 ))}
                             </select>
@@ -137,6 +139,9 @@ export default function MovieListing() {
                         <label>
                             Ticket Total: <input name="ticketTotal" type="number" min="1" step="1" defaultValue="1" required />
                         </label>
+                        <div>
+                            Price: x
+                        </div>
                         <button type="submit" disabled={loading}>
                             {loading ? "Purchasing..." : "Purchase"}
                         </button>

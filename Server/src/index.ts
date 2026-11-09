@@ -212,6 +212,28 @@ app.get('/api/theaters', async (_req, res) => {
     }
 });
 
+app.get('/api/formats', async (req, res) => {
+    const theaterId = req.query.theaterId === undefined ? null : Number(req.query.theaterId);
+    if (theaterId !== null && (!Number.isSafeInteger(theaterId) || theaterId < 1)) {
+        return res.status(400).json({ error: 'Theater id must be a positive number' });
+    }
+
+    try {
+        const [rows] = theaterId === null
+            ? await pool.execute(
+                'SELECT format_id, theater_id, format_name, price, format_description FROM formats ORDER BY format_name'
+            )
+            : await pool.execute(
+                'SELECT format_id, theater_id, format_name, price, format_description FROM formats WHERE theater_id = ? ORDER BY format_name',
+                [theaterId]
+            );
+        res.json({ formats: rows });
+    } catch (error) {
+        console.error('Formats error:', error);
+        res.status(500).json({ error: 'Could not load formats' });
+    }
+});
+
 app.get('/api/movies', async (_req, res) => {
     try {
         const [rows] = await pool.execute(
@@ -233,10 +255,12 @@ app.get('/api/showings', async (_req, res) => {
     try {
         const [rows] = await pool.execute(
             `SELECT showing.showing_id, showing.movie_id, showing.showtime, showing.theater_id,
-                    movies.title, theaters.theater_name, theaters.theater_location
+                    showing.formats_id, movies.title, theaters.theater_name, theaters.theater_location,
+                    formats.format_name, formats.price
              FROM showing
              JOIN movies ON movies.movie_id = showing.movie_id
              JOIN theaters ON theaters.theater_id = showing.theater_id
+             JOIN formats ON formats.format_id = showing.formats_id
              ORDER BY showing.showtime`
         );
         res.json({ showings: rows });
@@ -303,11 +327,17 @@ app.post('/api/showings', async (req, res) => {
 
     const movieId = Number(req.body.movieId);
     const showtime = String(req.body.showtime ?? '');
-    // The form does not pick a theater yet, so every showing goes to theater 1
-    const theaterId = 1;
+    const theaterId = Number(req.body.theaterId);
+    const formatId = Number(req.body.formatId);
 
     if (!Number.isSafeInteger(movieId) || movieId < 1) {
         return res.status(400).json({ error: 'A valid movie is required' });
+    }
+    if (!Number.isSafeInteger(theaterId) || theaterId < 1) {
+        return res.status(400).json({ error: 'A valid theater is required' });
+    }
+    if (!Number.isSafeInteger(formatId) || formatId < 1) {
+        return res.status(400).json({ error: 'A valid format is required' });
     }
     // showtime is a DATETIME, so it has to look like 2026-10-24 19:30:00
     const hasRightShape =
@@ -334,14 +364,21 @@ app.post('/api/showings', async (req, res) => {
         if ((movies as any[]).length === 0) {
             return res.status(400).json({ error: 'The selected movie does not exist' });
         }
+        const [formats] = await connection.execute(
+            'SELECT format_id FROM formats WHERE format_id = ? AND theater_id = ?',
+            [formatId, theaterId]
+        );
+        if ((formats as any[]).length === 0) {
+            return res.status(400).json({ error: 'The selected format is not available at this theater' });
+        }
 
         // showing_id is not auto-increment, so assign the next one
         const [maxRows] = await connection.execute('SELECT COALESCE(MAX(showing_id), 0) + 1 AS next_id FROM showing');
         const showingId = Number((maxRows as any[])[0].next_id);
 
         await connection.execute(
-            'INSERT INTO showing (showing_id, movie_id, showtime, theater_id) VALUES (?, ?, ?, ?)',
-            [showingId, movieId, showtime, theaterId]
+            'INSERT INTO showing (showing_id, movie_id, showtime, theater_id, formats_id) VALUES (?, ?, ?, ?, ?)',
+            [showingId, movieId, showtime, theaterId, formatId]
         );
 
         res.status(201).json({ showingId });
@@ -359,6 +396,7 @@ app.post('/api/purchase', async (req, res) => {
     const lastName = String(req.body.lastName ?? '').trim();
     const ticketTotal = Number(req.body.ticketTotal);
     const showingId = Number(req.body.showingId);
+    const paymentMethod = String(req.body.paymentMethod ?? 'Online').trim();
 
     if (!firstName || !lastName || firstName.length > 45 || lastName.length > 45) {
         return res.status(400).json({ error: 'First and last name are required and must be 45 characters or fewer' });
@@ -369,11 +407,17 @@ app.post('/api/purchase', async (req, res) => {
     if (!Number.isSafeInteger(showingId) || showingId < 1) {
         return res.status(400).json({ error: 'A valid showing is required' });
     }
+    if (!paymentMethod || paymentMethod.length > 45) {
+        return res.status(400).json({ error: 'Payment method is required and must be 45 characters or fewer' });
+    }
 
     let connection;
+    let transactionStarted = false;
 
     try {
         connection = await pool.getConnection();
+        await connection.beginTransaction();
+        transactionStarted = true;
         const [showings] = await connection.execute(
             'SELECT movie_id FROM showing WHERE showing_id = ?',
             [showingId]
@@ -401,18 +445,38 @@ app.post('/api/purchase', async (req, res) => {
             userId = (users as any[])[0].users_id;
         }
 
+        const [purchaseMaxRows] = await connection.execute(
+            'SELECT COALESCE(MAX(purchase_id), 0) + 1 AS next_id FROM purchases'
+        );
+        const purchaseId = Number((purchaseMaxRows as any[])[0].next_id);
+        await connection.execute(
+            'INSERT INTO purchases (purchase_id, payment_method, payment_made) VALUES (?, ?, 1)',
+            [purchaseId, paymentMethod]
+        );
+
         const ticketId = crypto.randomBytes(16).toString('hex');
 
         await connection.execute(
-            'INSERT INTO tickets (ticket_id, movie_id, showing_id, user_id, purchase_time, ticket_amount) VALUES (?, ?, ?, ?, NOW(), ?)',
-            [ticketId, movieId, showingId, userId, ticketTotal]
+            'INSERT INTO tickets (ticket_id, movie_id, showing_id, user_id, purchase_time, ticket_amount, purchase_id) VALUES (?, ?, ?, ?, NOW(), ?, ?)',
+            [ticketId, movieId, showingId, userId, ticketTotal, purchaseId]
         );
-        res.json({ ticketId, message: 'Purchase successful' });
+        await connection.commit();
+        transactionStarted = false;
+        res.json({ ticketId, purchaseId, message: 'Purchase successful' });
     } catch (error) {
+        if (connection && transactionStarted) {
+            await connection.rollback();
+            transactionStarted = false;
+        }
         console.error('Purchase error:', error);
         res.status(500).json({ error: 'Purchase failed' });
     } finally {
-        if (connection) connection.release();
+        if (connection) {
+            if (transactionStarted) {
+                await connection.rollback();
+            }
+            connection.release();
+        }
     }
 });
 
@@ -636,8 +700,7 @@ app.put('/api/account/:id', async (req, res) => {
         updates.push('password = ?');
         values.push(hashPassword(password));
     }
-    // users stores the theater by name, so the name gets filled in once we look it up below
-    let theaterNameIndex = -1;
+    let theaterIdIndex = -1;
     if (req.body.theaterId !== undefined) {
         const rawTheaterId = req.body.theaterId;
         if (rawTheaterId === null || rawTheaterId === '') {
@@ -649,7 +712,7 @@ app.put('/api/account/:id', async (req, res) => {
                 return res.status(400).json({ error: 'Theater id must be a positive number or null' });
             }
             updates.push('theater_name = ?');
-            theaterNameIndex = values.length;
+            theaterIdIndex = values.length;
             values.push(null);
         }
     }
@@ -673,7 +736,7 @@ app.put('/api/account/:id', async (req, res) => {
                 return res.status(409).json({ error: 'An account with that email already exists' });
             }
         }
-        if (theaterNameIndex !== -1) {
+        if (theaterIdIndex !== -1) {
             const [theaters] = await connection.execute(
                 'SELECT theater_name FROM theaters WHERE theater_id = ?',
                 [Number(req.body.theaterId)]
@@ -681,7 +744,7 @@ app.put('/api/account/:id', async (req, res) => {
             if ((theaters as any[]).length === 0) {
                 return res.status(400).json({ error: 'The selected theater does not exist' });
             }
-            values[theaterNameIndex] = (theaters as any[])[0].theater_name;
+            values[theaterIdIndex] = (theaters as any[])[0].theater_name;
         }
 
         values.push(accountId);
@@ -767,7 +830,26 @@ app.delete('/api/account/:id', async (req, res) => {
         connection = await pool.getConnection();
         await connection.beginTransaction();
         // Tickets point at the user, so those get removed first
+        const [purchaseRows] = await connection.execute(
+            'SELECT DISTINCT purchase_id FROM tickets WHERE user_id = ?',
+            [accountId]
+        );
         await connection.execute('DELETE FROM tickets WHERE user_id = ?', [accountId]);
+        const purchaseIds = (purchaseRows as any[]).map((row) => row.purchase_id);
+        if (purchaseIds.length > 0) {
+            const placeholders = purchaseIds.map(() => '?').join(', ');
+            await connection.execute(
+                `DELETE FROM purchases
+                 WHERE purchase_id IN (${placeholders})
+                   AND NOT EXISTS (
+                       SELECT 1 FROM tickets WHERE tickets.purchase_id = purchases.purchase_id
+                   )
+                   AND NOT EXISTS (
+                       SELECT 1 FROM formats WHERE formats.purchase_ids = purchases.purchase_id
+                   )`,
+                purchaseIds
+            );
+        }
         const [result] = await connection.execute('DELETE FROM users WHERE users_id = ?', [accountId]);
         if ((result as any).affectedRows === 0) {
             await connection.rollback();

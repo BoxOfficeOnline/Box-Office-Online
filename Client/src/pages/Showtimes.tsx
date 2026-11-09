@@ -58,10 +58,17 @@ export default function Showtimes() {
     return (
         <body>
             <div className="showtimes-header">
-                <h1 style={{ textAlign: "center" }}>Showtimes</h1>
-                <div>
-                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-                </div>
+                <h1>Showtimes</h1>
+                <form className="form">
+                    <div>
+                        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                    </div>
+                    <div>
+                        <select name="theaterID">
+                            <option>Theater 1</option>
+                        </select>
+                    </div>
+                </form>
             </div>
             <div className="showtimes">
                 {movies.map((movie) => (
