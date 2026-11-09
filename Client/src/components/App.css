@@ -85,6 +85,28 @@ body {
     padding: 16px;
 }
 
+.import-results {
+    max-width: 1000px;
+    margin: 20px auto;
+    padding: 0 16px;
+}
+
+.import-table {
+    overflow-x: auto;
+}
+
+.import-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.import-table th,
+.import-table td {
+    border: 1px solid #bbb;
+    padding: 8px;
+    text-align: left;
+}
+
 .ticket {
     display: flex;
     align-items: center;
