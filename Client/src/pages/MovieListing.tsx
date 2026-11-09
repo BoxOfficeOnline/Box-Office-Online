@@ -11,6 +11,9 @@ type Movie = {
     movie_id: number;
     title: string;
     description: string;
+    length: number;
+    release_year: number;
+    rating: string;
     image: string | null;
 };
 
@@ -21,6 +24,8 @@ type Showing = {
     title: string;
     theater_name: string;
     theater_location: string;
+    format_name: string;
+    price: number;
 };
 
 const API_BASE = import.meta.env.DEV
@@ -32,6 +37,7 @@ export default function MovieListing() {
     const [searchParams] = useSearchParams();
     // Set when you come here from a movie on the Showtimes page
     const movieId = Number(searchParams.get("movieId")) || null;
+    const showingId = Number(searchParams.get("showingId")) || null;
     const [movie, setMovie] = useState<Movie | null>(null);
     const [showings, setShowings] = useState<Showing[]>([]);
     const [loadingShowings, setLoadingShowings] = useState(true);
@@ -82,6 +88,11 @@ export default function MovieListing() {
             });
     }, [movieId]);
 
+    const [selectedShowingId, setSelectedShowingId] = useState(showingId ? String(showingId) : "")
+    const [ticketTotal, setTicketTotal] = useState("1")
+    const selectedShowing = showings.find((showing) => String(showing.showing_id) === selectedShowingId)
+    const totalPrice = Number(selectedShowing?.price ?? 0) * Number(ticketTotal)
+
     const handleSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
@@ -119,7 +130,10 @@ export default function MovieListing() {
                 <img src={movie?.image ? posterSrc(movie.image) : wallE} alt={movie?.title ?? "WALL-E"}/>
             </div>
             <div id="synopsis">
-                <p>{movie?.description ?? "Synopsis goes here..."}</p>
+                <h2>{movie?.title}</h2>
+                <h3>Synopsis</h3>
+                <p>{movie?.description}</p>
+                <p>{movie?.release_year} | {movie?.length} min | {movie?.rating}</p>
             </div>
             <div id="order">
                 <h2>Order Tickets</h2>
@@ -146,6 +160,9 @@ export default function MovieListing() {
                         <label>
                             Ticket Total: <input name="ticketTotal" type="number" min="1" step="1" defaultValue="1" required />
                         </label>
+                        <div>
+                            Total: ${totalPrice.toFixed(2)}
+                        </div>
                         <button type="submit" disabled={loading}>
                             {loading ? "Purchasing..." : "Purchase"}
                         </button>

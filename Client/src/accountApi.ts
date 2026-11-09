@@ -16,23 +16,42 @@ export type Account = {
 
 // Lets the navbar know someone logged in or out
 export const SESSION_EVENT = "sessionchange";
+export const THEATER_EVENT = "theaterchange";
 
 export function saveSession(token: string, accountId: number, adminPermission: boolean) {
     localStorage.setItem("token", token);
     localStorage.setItem("accountId", String(accountId));
     localStorage.setItem("adminPermission", String(adminPermission));
+    if (localStorage.getItem("selectedTheaterId") === null) {
+        localStorage.setItem("selectedTheaterId", "1")
+    }
     window.dispatchEvent(new Event(SESSION_EVENT));
+}
+
+export function getSelectedTheaterId() {
+    return localStorage.getItem("selectedTheaterId");
+}
+
+export function saveSelectedTheaterId(id: number) {
+    localStorage.setItem("selectedTheaterId", String(id))
+    window.dispatchEvent(new Event(THEATER_EVENT))
 }
 
 export function clearSession() {
     localStorage.removeItem("token");
     localStorage.removeItem("accountId");
+    localStorage.removeItem("employeePermission");
     localStorage.removeItem("adminPermission");
     window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
 export function saveAdminPermission(adminPermission: boolean) {
     localStorage.setItem("adminPermission", String(adminPermission));
+    window.dispatchEvent(new Event(SESSION_EVENT));
+}
+
+export function saveEmployeePermission(employeePermission: boolean) {
+    localStorage.setItem("employeePermission", String(employeePermission));
     window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
@@ -43,6 +62,10 @@ export function getAccountId() {
 // Only decides what the page shows; the server still checks admin_permission itself
 export function isAdmin() {
     return localStorage.getItem("adminPermission") === "true";
+}
+
+export function isEmployee() {
+    return localStorage.getItem("employeePermission") === "true";
 }
 
 export async function accountFetch(path: string, options: RequestInit = {}) {

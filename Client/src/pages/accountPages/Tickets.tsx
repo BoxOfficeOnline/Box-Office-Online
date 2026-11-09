@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react"
 import "../../components/App.css"
 import { accountFetch, getAccountId } from "../../accountApi.ts"
+import { Link } from "react-router"
+import wallE from "../../assets/WALL-E.webp"
 
 type Ticket = {
     ticket_id: string
@@ -44,14 +46,24 @@ export default function Tickets() {
 
     return (
         <div className="accountPage">
-            {tickets.map((ticket) => (
-                <div key={ticket.ticket_id}>
-                    {ticket.title || "Ticket"} {ticket.ticket_id}
-                    {ticket.showtime ? ` — ${new Date(ticket.showtime).toLocaleString()}` : ""}
-                    {` — ${ticket.ticket_amount} ticket${ticket.ticket_amount === 1 ? "" : "s"}`}
-                </div>
-            ))}
+            <h1 style={{ textAlign: "center" }}>Purchased Tickets</h1>
             {message && <div className={ok ? "valid" : "invalid"}>{message}</div>}
+            <div className="tickets">
+                {tickets.map((ticket) => (
+                    <div className="ticket" key={ticket.ticket_id}>  
+                        <div className="ticketPoster">
+                        </div>
+                        <span>
+                            {ticket.title || "Ticket"} {ticket.ticket_id}
+                            {ticket.showtime ? ` — ${new Date(ticket.showtime).toLocaleString()}` : ""}
+                            {` — ${ticket.ticket_amount} ticket${ticket.ticket_amount === 1 ? "" : "s"}`}
+                        </span>
+                        <Link className="barcodeButton" to={`/purchase/${ticket.ticket_id}`}>
+                            View Barcode
+                        </Link>
+                    </div>
+                ))}
+            </div>
         </div>
     )
 }

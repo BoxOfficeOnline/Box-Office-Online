@@ -29,3 +29,9 @@
     grid-auto-rows: 75px;
     grid-gap: 10px;
 }
+
+#showing {
+    width: 100%;
+    max-width: 280px;
+    box-sizing: border-box;
+}
