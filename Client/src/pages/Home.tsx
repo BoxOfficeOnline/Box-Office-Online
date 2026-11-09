@@ -15,7 +15,7 @@ type Theater = {
 type Movie = {
     movie_id: number
     title: string
-    poster: string | null
+    image: string | null
 }
 
 type Showing = {
@@ -93,10 +93,9 @@ export default function Home() {
                                 key={movie.movie_id}
                             >
                                 <img
-                                    src={movie.poster ? posterSrc(movie.poster) : wallE}
-                                    alt={`${movie.title} poster`}
+                                    src={movie.image ? posterSrc(movie.image) : wallE}
+                                    alt={`${movie.image} poster`}
                                 />
-                                <span>{movie.title}</span>
                             </Link>
                         ))}
                     </div>

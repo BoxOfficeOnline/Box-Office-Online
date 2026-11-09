@@ -40,8 +40,8 @@ export function saveSelectedTheaterId(id: number) {
 export function clearSession() {
     localStorage.removeItem("token");
     localStorage.removeItem("accountId");
+    localStorage.removeItem("employeePermission");
     localStorage.removeItem("adminPermission");
-    localStorage.removeItem("selectedTheaterId");
     window.dispatchEvent(new Event(SESSION_EVENT));
 }
 

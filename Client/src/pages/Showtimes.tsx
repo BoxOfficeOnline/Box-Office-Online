@@ -117,9 +117,9 @@ export default function Showtimes() {
                                 .filter((showing) => showing.movie_id === movie.movie_id)
                                 .filter((showing) => !date || toDateValue(showing.showtime) === date)
                                 .map((showing) => (
-                                    <button key={showing.showing_id}>
+                                    <Link key={showing.showing_id} to={`/movies?movieId=${movie.movie_id}&showingId=${showing.showing_id}`}>
                                         {new Date(showing.showtime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                                    </button>
+                                    </Link>
                                 ))}
                         </div>
                     </div>
