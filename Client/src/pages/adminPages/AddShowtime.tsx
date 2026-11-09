@@ -177,7 +177,9 @@ export default function AddShowtime() {
                 body: JSON.stringify({ csv: await csvFile.text() }),
             })
             if (!response.ok) {
-                setImportError(data.error || "Could not preview the CSV.")
+                setImportError(data.error || (response.status === 404
+                    ? "The API server does not support CSV imports yet. Deploy the latest server and try again."
+                    : `Could not preview the CSV (HTTP ${response.status}).`))
             } else {
                 setPreview(data as ImportPreview)
             }

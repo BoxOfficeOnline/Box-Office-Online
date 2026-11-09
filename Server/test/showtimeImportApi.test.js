@@ -15,6 +15,7 @@ test('admin preview and approval import only validated showtimes', async () => {
     let inTransaction = false;
     let formatAvailable = true;
     let failInsert = false;
+    let claudeCalls = 0;
     const connection = {
         release() {},
         destroy() {},
@@ -58,6 +59,13 @@ test('admin preview and approval import only validated showtimes', async () => {
     process.env.ANTHROPIC_MODEL = 'test-model';
     global.fetch = async (url, options) => {
         if (url === 'https://api.anthropic.com/v1/messages') {
+            claudeCalls++;
+            const request = JSON.parse(options.body);
+            assert.deepEqual(JSON.parse(request.messages[0].content), {
+                headers: ['movie', 'datetime', 'theater', 'format'],
+            });
+            assert.equal(request.model, 'test-model');
+            assert.equal(options.headers['x-api-key'], 'test-key');
             return { ok: true, json: async () => ({ content: [{ type: 'tool_use', name: 'map_showtime_columns',
                 input: { movie: 0, datetime: 1, theater: 2, format: 3 } }] }) };
         }
@@ -85,8 +93,19 @@ test('admin preview and approval import only validated showtimes', async () => {
         const csv = 'movie,datetime,theater,format\nMovie,2026-12-01 19:30,Main,2D\nUnknown,2026-12-01 20:00,Main,2D';
         assert.equal((await post('/api/showings/import/preview', { csv })).status, 401);
         assert.equal((await post('/api/showings/import/preview', { csv }, user.data.token)).status, 403);
+        assert.equal(claudeCalls, 0);
+        const malformed = await post('/api/showings/import/preview', { csv: 'movie,datetime\n"unclosed' }, admin.data.token);
+        assert.equal(malformed.status, 400);
+        assert.equal(claudeCalls, 0);
+        delete process.env.ANTHROPIC_MODEL;
+        const unconfigured = await post('/api/showings/import/preview', { csv }, admin.data.token);
+        assert.equal(unconfigured.status, 503);
+        assert.match(unconfigured.data.error, /ANTHROPIC_API_KEY and ANTHROPIC_MODEL/);
+        assert.equal(claudeCalls, 0);
+        process.env.ANTHROPIC_MODEL = 'test-model';
         const preview = await post('/api/showings/import/preview', { csv }, admin.data.token);
         assert.equal(preview.status, 200);
+        assert.equal(claudeCalls, 1);
         assert.equal(preview.data.valid.length, 1);
         assert.equal(preview.data.invalid.length, 1);
         assert.equal(stored.length, 0);
