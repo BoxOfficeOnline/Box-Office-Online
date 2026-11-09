@@ -619,6 +619,8 @@ app.post('/api/purchase', async (req, res) => {
             'INSERT INTO tickets (ticket_id, movie_id, showing_id, user_id, purchase_time, ticket_amount, purchase_id) VALUES (?, ?, ?, ?, NOW(), ?, ?)',
             [ticketId, movieId, showingId, userId, ticketTotal, (purchase as any).insertId]
         );
+        await connection.commit();
+        transactionStarted = false;
         res.json({ ticketId, receiptUrl: charge.receipt_url, message: 'Purchase successful' });
     } catch (error) {
         if (connection && transactionStarted) {
