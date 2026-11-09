@@ -146,19 +146,20 @@ export default function MovieListing() {
                     <form className="form" onSubmit={handleSubmit}>
                         <label>First Name: <input name="firstName" key={account?.firstName} defaultValue={account?.firstName} maxLength={45} required /></label>
                         <label>Last Name: <input name="lastName" key={account?.lastName} defaultValue={account?.lastName} maxLength={45} required /></label>
+                        <div>Showings: </div>
+                        <select id="showing" name="showingId" defaultValue={showingId ? String(showingId) : ""} value={selectedShowingId} 
+                            onChange={(e) => setSelectedShowingId(e.target.value)} required >
+                            <option value="" disabled>Select a showing</option>
+                            {showings.map((showing) => (
+                                <option key={showing.showing_id} value={showing.showing_id}>
+                                    {showing.title} - {showing.theater_name} ({showing.theater_location}) - {showing.format_name} 
+                                    (${Number(showing.price).toFixed(2)}) - {new Date(showing.showtime).toLocaleString()}
+                                </option>
+                            ))}
+                        </select>
                         <label>
-                            Showing:
-                            <select name="showingId" required defaultValue={searchParams.get("showingId") ?? ""}>
-                                <option value="" disabled>Select a showing</option>
-                                {showings.map((showing) => (
-                                    <option key={showing.showing_id} value={showing.showing_id}>
-                                        {showing.title} - {showing.theater_name} ({showing.theater_location}) - {new Date(showing.showtime).toLocaleString()}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                        <label>
-                            Ticket Total: <input name="ticketTotal" type="number" min="1" step="1" defaultValue="1" required />
+                            Ticket Total: <input name="ticketTotal" type="number" min="1" step="1" defaultValue="1" value={ticketTotal} 
+                            onChange={(e) => setTicketTotal(e.target.value)} required />
                         </label>
                         <div>
                             Total: ${totalPrice.toFixed(2)}
