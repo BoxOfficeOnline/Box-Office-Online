@@ -1,15 +1,19 @@
 import type { SyntheticEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "../components/App.css"
 import wallE from '../assets/WALL-E.webp';
 import "../components/MovieListing.css"
 import { posterSrc } from "../posterSrc.ts"
+import { accountFetch, getAccountId, type Account } from "../accountApi.ts"
 
 type Movie = {
     movie_id: number;
     title: string;
     description: string;
+    length: number;
+    release_year: number;
+    rating: string;
     image: string | null;
 };
 
@@ -30,15 +34,24 @@ const API_BASE = import.meta.env.DEV
 
 
 export default function MovieListing() {
-    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     // Set when you come here from a movie on the Showtimes page
     const movieId = Number(searchParams.get("movieId")) || null;
+    const showingId = Number(searchParams.get("showingId")) || null;
     const [movie, setMovie] = useState<Movie | null>(null);
     const [showings, setShowings] = useState<Showing[]>([]);
     const [loadingShowings, setLoadingShowings] = useState(true);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
+    const [account, setAccount] = useState<Account | null>(null);
+
+    useEffect(() => {
+        // Fill in the name for logged in users
+        const id = getAccountId();
+        if (id) {
+            accountFetch(`/api/account/${id}`).then(({ response, data }) => response.ok && setAccount(data.account));
+        }
+    }, []);
 
     useEffect(() => {
         fetch(`${API_BASE}/api/showings`)
@@ -75,6 +88,11 @@ export default function MovieListing() {
             });
     }, [movieId]);
 
+    const [selectedShowingId, setSelectedShowingId] = useState(showingId ? String(showingId) : "")
+    const [ticketTotal, setTicketTotal] = useState("1")
+    const selectedShowing = showings.find((showing) => String(showing.showing_id) === selectedShowingId)
+    const totalPrice = Number(selectedShowing?.price ?? 0) * Number(ticketTotal)
+
     const handleSubmit = async (e: SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
@@ -94,7 +112,7 @@ export default function MovieListing() {
 
             const data = await response.json();
             if (response.ok) {
-                navigate(`/purchase/${data.ticketId}`);
+                window.location.href = data.url;
             } else {
                 setMessage(data.error || "Purchase failed.");
             }
@@ -112,7 +130,10 @@ export default function MovieListing() {
                 <img src={movie?.image ? posterSrc(movie.image) : wallE} alt={movie?.title ?? "WALL-E"}/>
             </div>
             <div id="synopsis">
-                <p>{movie?.description ?? "Synopsis goes here..."}</p>
+                <h2>{movie?.title}</h2>
+                <h3>Synopsis</h3>
+                <p>{movie?.description}</p>
+                <p>{movie?.release_year} | {movie?.length} min | {movie?.rating}</p>
             </div>
             <div id="order">
                 <h2>Order Tickets</h2>
@@ -123,24 +144,25 @@ export default function MovieListing() {
                         <div className="invalid">{message || "There are no showings available."}</div>
                     ) : (
                     <form className="form" onSubmit={handleSubmit}>
-                        <label>First Name: <input name="firstName" maxLength={45} required /></label>
-                        <label>Last Name: <input name="lastName" maxLength={45} required /></label>
+                        <label>First Name: <input name="firstName" key={account?.firstName} defaultValue={account?.firstName} maxLength={45} required /></label>
+                        <label>Last Name: <input name="lastName" key={account?.lastName} defaultValue={account?.lastName} maxLength={45} required /></label>
+                        <div>Showings: </div>
+                        <select id="showing" name="showingId" defaultValue={showingId ? String(showingId) : ""} value={selectedShowingId} 
+                            onChange={(e) => setSelectedShowingId(e.target.value)} required >
+                            <option value="" disabled>Select a showing</option>
+                            {showings.map((showing) => (
+                                <option key={showing.showing_id} value={showing.showing_id}>
+                                    {showing.title} - {showing.theater_name} ({showing.theater_location}) - {showing.format_name} 
+                                    (${Number(showing.price).toFixed(2)}) - {new Date(showing.showtime).toLocaleString()}
+                                </option>
+                            ))}
+                        </select>
                         <label>
-                            Showing:
-                            <select name="showingId" required defaultValue="">
-                                <option value="" disabled>Select a showing</option>
-                                {showings.map((showing) => (
-                                    <option key={showing.showing_id} value={showing.showing_id}>
-                                        {showing.title} - {showing.theater_name} ({showing.theater_location}) - {showing.format_name} (${Number(showing.price).toFixed(2)}) - {new Date(showing.showtime).toLocaleString()}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                        <label>
-                            Ticket Total: <input name="ticketTotal" type="number" min="1" step="1" defaultValue="1" required />
+                            Ticket Total: <input name="ticketTotal" type="number" min="1" step="1" defaultValue="1" value={ticketTotal} 
+                            onChange={(e) => setTicketTotal(e.target.value)} required />
                         </label>
                         <div>
-                            Price: x
+                            Total: ${totalPrice.toFixed(2)}
                         </div>
                         <button type="submit" disabled={loading}>
                             {loading ? "Purchasing..." : "Purchase"}

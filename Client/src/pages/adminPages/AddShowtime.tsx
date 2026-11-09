@@ -252,6 +252,36 @@ export default function AddShowtime() {
         }
     }
 
+    const handleShowtimeCSV = async (e: SyntheticEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        if (!getAccountId()) {
+            alert("You need to log in first.")
+            return
+        }
+
+        const formData = new FormData(e.currentTarget)
+        const csvFile = formData.get("csv")
+        if (!(csvFile instanceof File) || csvFile.size === 0) {
+            alert("Choose a CSV file first.")
+            return
+        }
+
+        try {
+            const { response, data } = await accountFetch("/api/showings/csv", {
+                method: "POST",
+                body: csvFile,
+            })
+            if (response.ok) {
+                alert("Showtimes added from CSV.")
+            } else {
+                alert(data.error || "Could not add showtimes from CSV.")
+            }
+        } catch (error) {
+            console.error("Add showtimes from CSV error:", error)
+            alert("Could not add showtimes from CSV. The server did not respond.")
+        }
+    }
+
     return (
 
         <div>
@@ -262,11 +292,13 @@ export default function AddShowtime() {
                 <input type="file" id="movie-poster" name="movie-poster" accept="image/*" required />
                 <button type="submit">Add Movie</button>
             </form>
+            {/* --- Not Ready For Testing ---
             <h1 style={{ textAlign: "center" }}>Add a Format</h1>
             <form className="form">
-                <input type="text" name="title" placeholder="Movie Title" required />
+                <input type="text" name="title" placeholder="Format Title" required />
                 <button type="submit">Add Format</button>
             </form>
+            */}
             <br/>
             <h1 style={{ textAlign: "center" }}>Add a Showtime</h1>
             <form className="form" onSubmit={handleShowtimeSubmit}>
