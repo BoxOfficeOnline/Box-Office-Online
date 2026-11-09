@@ -94,7 +94,7 @@ function Nav() {
                         </Link>
                     </>
                 ) : (
-                    <details className="navAccountMenu">
+                    <details className="navAccountDropdown">
                         <summary>My Account</summary>
                         <div className="navAccountMenu">
                             <Link to="/account">

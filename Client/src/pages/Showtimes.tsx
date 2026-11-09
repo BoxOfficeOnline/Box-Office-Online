@@ -111,7 +111,7 @@ export default function Showtimes() {
                             <p>{movie.description}</p>
                             <p>{movie.release_year} | {movie.length} min | {movie.rating}</p>
                         </div>
-                        <div id="times">
+                        <div className="times">
                             {showings
                                 .filter((showing) => String(showing.theater_id) === selectedTheaterId)
                                 .filter((showing) => showing.movie_id === movie.movie_id)
