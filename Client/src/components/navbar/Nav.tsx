@@ -4,13 +4,34 @@ import '../App.css'
 import './navbar.css'
 import kuLogo from '../../assets/KULogo.svg';
 import logo from '../../assets/BOOLogo.png';
-import { accountFetch, clearSession, getAccountId, isAdmin, saveAdminPermission, SESSION_EVENT } from '../../accountApi.ts'
+import { accountFetch, clearSession, getAccountId, isAdmin, saveAdminPermission, SESSION_EVENT, THEATER_EVENT, saveSelectedTheaterId } from '../../accountApi.ts'
+
+type Theater = {
+    theater_id: number
+    theater_name: string
+    theater_location: string
+}
 
 function Nav() {
     const [loggedIn, setLoggedIn] = useState(Boolean(getAccountId()))
     const [admin, setAdmin] = useState(isAdmin())
+    const [theaters, setTheaters] = useState<Theater[]>([])
 
     useEffect(() => {
+        Promise.all([
+            accountFetch("/api/theaters"),
+        ])
+            .then(([theaterResult]) => {
+                if (!theaterResult.response.ok) {
+                    alert(theaterResult.data.error || "Could not load theaters.")
+                    return
+                }
+                setTheaters(theaterResult.data.theaters as Theater[])
+            })
+            .catch((error) => {
+                console.error("Navbar error:", error)
+                alert("Could not load navbar data. The server did not respond.")
+            })
         const update = () => {
             setLoggedIn(Boolean(getAccountId()))
             setAdmin(isAdmin())
@@ -38,34 +59,49 @@ function Nav() {
         <nav className="navbar">
             <img src={kuLogo} alt="KU Logo" className="navLogo"/>
             <img src={logo} alt="BOO Logo" className="navLogo"/>
-            <div className="navLinks">
+            <div className="navLinks" style={{ paddingLeft: '20px' }}>
                 <Link to="/">
                     Home
                 </Link>
                 <Link to="/showtimes">
                     Showtimes
                 </Link>
-                <Link to="/scan">
-                    Scan Tickets
-                </Link>
-                <Link to="/account">
-                    Account Test
-                </Link>
-                {admin && (
-                    <Link to="/addshowtime">
-                        Admin Dashboard
-                    </Link>
-                )}
+            <details className="navAccountDropdown" style={{ alignSelf: 'center' }}>
+                <summary>Our Theaters</summary>
+                <div className="navAccountMenu">
+                    {theaters.map((theater) => (
+                        <button key={theater.theater_id} type="button"
+                            onClick={() => saveSelectedTheaterId(theater.theater_id)}
+                        >
+                            {theater.theater_name}
+                        </button>
+                    ))}
+                </div>
+            </details>
             </div>
             <div style={{ display: 'flex', marginLeft: 'auto' }}>
-                {!loggedIn && (
-                    <Link to="/login">
-                        Log In
-                    </Link>
+                {!loggedIn ? (
+                    <>
+                        <Link to="/login">
+                            Log In
+                        </Link>
+                        <Link to="/createAccount">
+                            Create Account
+                        </Link>
+                    </>
+                ) : (
+                    <details className="navAccountDropdown">
+                        <summary>My Account</summary>
+                        <div className="navAccountMenu">
+                            <Link to="/account">
+                                Account Dashboard
+                            </Link>
+                            <Link to="/logout">
+                                Log Out
+                            </Link>
+                        </div>
+                    </details>
                 )}
-                <Link to="/createAccount">
-                    Create Account
-                </Link>
             </div>
         </nav>
     )

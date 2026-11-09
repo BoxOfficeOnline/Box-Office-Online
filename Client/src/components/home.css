@@ -1,0 +1,38 @@
+.theaterBar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #151515;
+    color: white;
+    flex-direction: column;
+}
+
+.nowShowing .moviePosters > * {
+    box-sizing: border-box;
+    flex: 0 1 calc((100% - 3rem) / 4);
+}
+
+.nowShowing .moviePosters {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    width: 100%;
+}
+
+.nowShowing .moviePosters img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+}
+
+#nowShowing {
+    text-align: center;
+    padding: 10px;
+}
+
+#homeMessage {
+    text-align: center;
+    padding: 10px;
+    font-size: 1.2rem;
+}

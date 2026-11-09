@@ -58,21 +58,23 @@ export default function Delete() {
     }
 
     return (
-        <div className="accountPage">
-            <div>
-                Are you sure you want to delete your account? This action cannot be undone.
+        <body>
+            <div className="accountPage">
+                <div style={{ fontSize: "1.5rem", marginBottom: "1rem", textAlign: "center" }}>
+                    Are you sure you want to delete your account? This action cannot be undone.
+                </div>
+                <div>
+                    <form className="form" onSubmit={handleSubmit}>
+                        <label>
+                            Confirm Password: <input name="password" type="password" required />
+                        </label>
+                        <button type="submit" disabled={loading}>
+                            {loading ? "Deleting..." : "Delete Account"}
+                        </button>
+                    </form>
+                </div>
+                {message && <div className={ok ? "valid" : "invalid"}>{message}</div>}
             </div>
-            <div>
-                <form className="form" onSubmit={handleSubmit}>
-                    <label>
-                        Confirm Password: <input name="password" type="password" required />
-                    </label>
-                    <button type="submit" disabled={loading}>
-                        {loading ? "Deleting..." : "Delete Account"}
-                    </button>
-                </form>
-            </div>
-            {message && <div className={ok ? "valid" : "invalid"}>{message}</div>}
-        </div>
+        </body>
     )
 }

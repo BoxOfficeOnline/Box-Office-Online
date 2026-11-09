@@ -13,16 +13,6 @@ body {
     height: 100vh;
 }
 
-.homePoster {
-    margin-top: 20px;
-}
-
-.homePoster img {
-    width: 300px;
-    height: auto;
-    border-radius: 10px;
-}
-
 .form {
     display: flex;
     flex-direction: column;
@@ -115,4 +105,34 @@ body {
     border: 1px solid #bbb;
     padding: 8px;
     text-align: left;
+}
+
+.ticket {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-top: 1px solid #000000;
+    border-bottom: 1px solid #000000;
+    height: 250px;
+}
+
+.ticketPoster {
+    height: auto;
+    border-radius: 5px;
+    align-items: center;
+}
+
+.ticketPoster img {
+    width: auto;
+    height: 240px;
+    border-radius: 5px;
+}
+
+.barcodeButton {
+    margin-left: auto;
+    border-radius: 5px;
+    padding: 8px 16px;
+    background-color: #000000;
+    color: #FFFFFF;
+    text-decoration: none;
 }

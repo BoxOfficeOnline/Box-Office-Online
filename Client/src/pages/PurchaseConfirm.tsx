@@ -2,9 +2,11 @@
 //Stripe
 //Confirm w/ fake button
 
-export default function Purchase() {
+export default function PurchaseConfirm() {
     
     return(
-        <div></div>
+        <div>
+            
+        </div>
     )
 }
