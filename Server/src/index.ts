@@ -5,7 +5,8 @@ import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
 import crypto from 'crypto';
 import Stripe from 'stripe';
-import { ImportInputError, ImportServiceError, parseShowtimeCsv, validateRows, type ValidRow } from './showtimeImport';
+// coded by Claude
+import { describeShowtime, readShowtimeCsv } from './showtimeCsv';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -58,7 +59,6 @@ testConnection();
 
 // Remembers who is logged in until the server restarts
 const sessions = new Map<string, { userId: number }>();
-const showtimePreviews = new Map<string, { sessionToken: string; expires: number; rows: ValidRow[] }>();
 
 // password is only VARCHAR(45), so the hash has to stay short enough to fit
 function hashPassword(password: string): string {
@@ -217,28 +217,6 @@ app.get('/api/theaters', async (_req, res) => {
     }
 });
 
-app.get('/api/formats', async (req, res) => {
-    const theaterId = req.query.theaterId === undefined ? null : Number(req.query.theaterId);
-    if (theaterId !== null && (!Number.isSafeInteger(theaterId) || theaterId < 1)) {
-        return res.status(400).json({ error: 'Theater id must be a positive number' });
-    }
-
-    try {
-        const [rows] = theaterId === null
-            ? await pool.execute(
-                'SELECT format_id, theater_id, format_name, price, format_description FROM formats ORDER BY format_name'
-            )
-            : await pool.execute(
-                'SELECT format_id, theater_id, format_name, price, format_description FROM formats WHERE theater_id = ? ORDER BY format_name',
-                [theaterId]
-            );
-        res.json({ formats: rows });
-    } catch (error) {
-        console.error('Formats error:', error);
-        res.status(500).json({ error: 'Could not load formats' });
-    }
-});
-
 app.get('/api/movies', async (_req, res) => {
     try {
         const [rows] = await pool.execute(
@@ -272,117 +250,6 @@ app.get('/api/showings', async (_req, res) => {
     } catch (error) {
         console.error('Showings error:', error);
         res.status(500).json({ error: 'Could not load showings' });
-    }
-});
-
-app.post('/api/showings/import/preview', async (req, res) => {
-    if (!await authorizeAdmin(req, res)) return;
-    const csv: unknown = req.body?.csv;
-    if (typeof csv !== 'string' || !csv.trim() || Buffer.byteLength(csv, 'utf8') > 1024 * 1024) {
-        return res.status(400).json({ error: 'Choose a non-empty CSV file no larger than 1 MB.' });
-    }
-
-    let connection;
-    try {
-        const rows = await parseShowtimeCsv(csv);
-        connection = await pool.getConnection();
-        const result = await validateRows(connection, rows);
-        let previewId: string | null = null;
-        if (result.valid.length) {
-            const now = Date.now();
-            showtimePreviews.forEach((preview, id) => {
-                if (preview.expires <= now || preview.sessionToken === readSessionToken(req)) {
-                    showtimePreviews.delete(id);
-                }
-            });
-            if (showtimePreviews.size >= 100) {
-                return res.status(503).json({ error: 'Too many pending previews. Try again later.' });
-            }
-            previewId = crypto.randomUUID();
-            showtimePreviews.set(previewId, {
-                sessionToken: readSessionToken(req)!,
-                expires: now + 15 * 60 * 1000,
-                rows: result.valid,
-            });
-        }
-        res.json({ previewId, ...result });
-    } catch (error) {
-        if (error instanceof ImportInputError) {
-            return res.status(400).json({ error: error.message });
-        }
-        if (error instanceof ImportServiceError) {
-            return res.status(503).json({ error: error.message });
-        }
-        console.error('Showtime import preview error:', error);
-        res.status(500).json({ error: 'Could not preview the CSV. Check the server logs.' });
-    } finally {
-        if (connection) connection.release();
-    }
-});
-
-app.post('/api/showings/import', async (req, res) => {
-    if (!await authorizeAdmin(req, res)) return;
-    const previewId: unknown = req.body?.previewId;
-    if (typeof previewId !== 'string') {
-        return res.status(400).json({ error: 'The preview is invalid or expired. Upload the CSV again.' });
-    }
-    const preview = showtimePreviews.get(previewId);
-    if (!preview || preview.sessionToken !== readSessionToken(req) || preview.expires <= Date.now()) {
-        return res.status(400).json({ error: 'The preview is invalid or expired. Upload the CSV again.' });
-    }
-    showtimePreviews.delete(previewId);
-
-    let connection;
-    let locked = false;
-    let inTransaction = false;
-    try {
-        connection = await pool.getConnection();
-        const [lockRows] = await connection.query<mysql.RowDataPacket[]>(
-            "SELECT GET_LOCK('boxoffice_showtime_import', 10) AS acquired");
-        locked = lockRows[0]?.acquired === 1;
-        if (!locked) return res.status(503).json({ error: 'Another import is running. Preview the CSV again.' });
-        await connection.beginTransaction();
-        inTransaction = true;
-        const result = await validateRows(connection, preview.rows);
-        const approved = new Map(preview.rows.map((row) => [row.record, row]));
-        const unchanged: ValidRow[] = [];
-        for (const row of result.valid) {
-            const original = approved.get(row.record);
-            if (!original || original.movieId !== row.movieId || original.theaterId !== row.theaterId ||
-                original.formatId !== row.formatId || original.showtime !== row.showtime) {
-                result.invalid.push({ ...row, error: 'The matching database records changed since the preview.' });
-            } else {
-                unchanged.push(row);
-            }
-        }
-        const [maxRows] = await connection.query<mysql.RowDataPacket[]>(
-            'SELECT COALESCE(MAX(showing_id), 0) AS max_id FROM showing');
-        let nextId = Number(maxRows[0].max_id) + 1;
-        for (const row of unchanged) {
-            await connection.execute(
-                'INSERT INTO showing (showing_id, movie_id, showtime, theater_id, formats_id) VALUES (?, ?, ?, ?, ?)',
-                [nextId++, row.movieId, row.showtime, row.theaterId, row.formatId]);
-        }
-        await connection.commit();
-        inTransaction = false;
-        res.json({ imported: unchanged.length, invalid: result.invalid });
-    } catch (error) {
-        if (connection && inTransaction) await connection.rollback();
-        console.error('Showtime import error:', error);
-        res.status(500).json({ error: 'Could not import showtimes. Preview the CSV again.' });
-    } finally {
-        if (connection) {
-            if (locked) {
-                try {
-                    await connection.query("SELECT RELEASE_LOCK('boxoffice_showtime_import')");
-                } catch (error) {
-                    console.error('Could not release showtime import lock:', error);
-                    connection.destroy();
-                    return;
-                }
-            }
-            connection.release();
-        }
     }
 });
 
@@ -443,17 +310,11 @@ app.post('/api/showings', async (req, res) => {
 
     const movieId = Number(req.body.movieId);
     const showtime = String(req.body.showtime ?? '');
-    const theaterId = Number(req.body.theaterId);
-    const formatId = Number(req.body.formatId);
+    // The form does not pick a theater yet, so every showing goes to theater 1
+    const theaterId = 1;
 
     if (!Number.isSafeInteger(movieId) || movieId < 1) {
         return res.status(400).json({ error: 'A valid movie is required' });
-    }
-    if (!Number.isSafeInteger(theaterId) || theaterId < 1) {
-        return res.status(400).json({ error: 'A valid theater is required' });
-    }
-    if (!Number.isSafeInteger(formatId) || formatId < 1) {
-        return res.status(400).json({ error: 'A valid format is required' });
     }
     // showtime is a DATETIME, so it has to look like 2026-10-24 19:30:00
     const hasRightShape =
@@ -472,25 +333,13 @@ app.post('/api/showings', async (req, res) => {
     }
 
     let connection;
-    let locked = false;
 
     try {
         connection = await pool.getConnection();
-        const [lockRows] = await connection.query<mysql.RowDataPacket[]>(
-            "SELECT GET_LOCK('boxoffice_showtime_import', 10) AS acquired");
-        locked = lockRows[0]?.acquired === 1;
-        if (!locked) return res.status(503).json({ error: 'Another showtime operation is running. Try again.' });
 
         const [movies] = await connection.execute('SELECT movie_id FROM movies WHERE movie_id = ?', [movieId]);
         if ((movies as any[]).length === 0) {
             return res.status(400).json({ error: 'The selected movie does not exist' });
-        }
-        const [formats] = await connection.execute(
-            'SELECT format_id FROM formats WHERE format_id = ? AND theater_id = ?',
-            [formatId, theaterId]
-        );
-        if ((formats as any[]).length === 0) {
-            return res.status(400).json({ error: 'The selected format is not available at this theater' });
         }
 
         // showing_id is not auto-increment, so assign the next one
@@ -498,8 +347,8 @@ app.post('/api/showings', async (req, res) => {
         const showingId = Number((maxRows as any[])[0].next_id);
 
         await connection.execute(
-            'INSERT INTO showing (showing_id, movie_id, showtime, theater_id, formats_id) VALUES (?, ?, ?, ?, ?)',
-            [showingId, movieId, showtime, theaterId, formatId]
+            'INSERT INTO showing (showing_id, movie_id, showtime, theater_id) VALUES (?, ?, ?, ?)',
+            [showingId, movieId, showtime, theaterId]
         );
 
         res.status(201).json({ showingId });
@@ -507,18 +356,104 @@ app.post('/api/showings', async (req, res) => {
         console.error('Add showing error:', error);
         res.status(500).json({ error: 'Could not add the showing' });
     } finally {
-        if (connection) {
-            if (locked) {
-                try {
-                    await connection.query("SELECT RELEASE_LOCK('boxoffice_showtime_import')");
-                } catch (error) {
-                    console.error('Could not release showtime lock:', error);
-                    connection.destroy();
-                    return;
-                }
-            }
-            connection.release();
+        if (connection) connection.release();
+    }
+});
+
+// coded by Claude
+// Add a whole CSV file of showings at once (admins only)
+// Send preview: true first to see how the file was read, then send the same file without it to save
+app.post('/api/showings/csv', async (req, res) => {
+    if (!await authorizeAdmin(req, res)) {
+        return;
+    }
+
+    const csv = typeof req.body.csv === 'string' ? req.body.csv : '';
+    const preview = req.body.preview === true;
+    // The movie and theater picked on the page are used for rows that do not name their own
+    const rawMovieId = req.body.movieId;
+    const movieId = rawMovieId === undefined || rawMovieId === null || rawMovieId === '' ? null : Number(rawMovieId);
+    const theaterId = req.body.theaterId === undefined || req.body.theaterId === null || req.body.theaterId === '' ? 1 : Number(req.body.theaterId);
+
+    if (!csv.trim()) {
+        return res.status(400).json({ error: 'The CSV file is empty' });
+    }
+    if (csv.length > 5_000_000) {
+        return res.status(400).json({ error: 'The CSV file is too big. Split it into smaller files.' });
+    }
+    if (movieId !== null && (!Number.isSafeInteger(movieId) || movieId < 1)) {
+        return res.status(400).json({ error: 'A valid movie is required' });
+    }
+    if (!Number.isSafeInteger(theaterId) || theaterId < 1) {
+        return res.status(400).json({ error: 'A valid theater is required' });
+    }
+
+    let connection;
+
+    try {
+        connection = await pool.getConnection();
+
+        const [movieRows] = await connection.execute('SELECT movie_id, title FROM movies');
+        const [theaterRows] = await connection.execute('SELECT theater_id, theater_name, theater_location FROM theaters');
+        const [formatRows] = await connection.execute('SELECT format_id, format_name, theater_id FROM formats');
+        const movies = (movieRows as any[]).map((row) => ({ id: Number(row.movie_id), title: String(row.title) }));
+        const theaters = (theaterRows as any[]).map((row) => ({ id: Number(row.theater_id), name: String(row.theater_name), location: String(row.theater_location ?? '') }));
+        const formats = (formatRows as any[])
+            .filter((row) => row.format_name)
+            .map((row) => ({ id: Number(row.format_id), name: String(row.format_name), theaterId: row.theater_id === null ? null : Number(row.theater_id) }));
+
+        if (movieId !== null && !movies.some((movie) => movie.id === movieId)) {
+            return res.status(400).json({ error: 'The selected movie does not exist' });
         }
+        if (!theaters.some((theater) => theater.id === theaterId)) {
+            return res.status(400).json({ error: 'The selected theater does not exist' });
+        }
+
+        const result = readShowtimeCsv(csv, { movies, theaters, formats, defaultMovieId: movieId, defaultTheaterId: theaterId });
+
+        // Leave out showings that are already on the site, so uploading the same file twice is harmless
+        if (result.showings.length > 0) {
+            const times = result.showings.map((showing) => showing.showtime).sort();
+            const [existing] = await connection.execute(
+                `SELECT movie_id, theater_id, DATE_FORMAT(showtime, '%Y-%m-%d %H:%i:%s') AS showtime
+                 FROM showing WHERE showtime BETWEEN ? AND ?`,
+                [times[0], times[times.length - 1]]
+            );
+            const taken = new Set((existing as any[]).map((row) => `${row.movie_id}|${row.theater_id}|${row.showtime}`));
+            result.showings = result.showings.filter((showing) => {
+                if (!taken.has(`${showing.movieId}|${showing.theaterId}|${showing.showtime}`)) {
+                    return true;
+                }
+                result.problems.push({ row: showing.row, message: `${showing.movieTitle} on ${describeShowtime(showing.showtime)} is already on the site.` });
+                return false;
+            });
+            result.problems.sort((a, b) => a.row - b.row);
+        }
+
+        if (preview) {
+            return res.json(result);
+        }
+        if (result.showings.length === 0) {
+            return res.status(400).json({ error: 'No showtimes could be added from this file', ...result });
+        }
+
+        // showing_id is auto-increment, and the whole file goes in together or not at all
+        await connection.beginTransaction();
+        const rows = result.showings.map((showing) => [showing.movieId, showing.showtime, showing.theaterId, showing.formatId]);
+        for (let i = 0; i < rows.length; i += 500) {
+            await connection.query('INSERT INTO showing (movie_id, showtime, theater_id, formats_id) VALUES ?', [rows.slice(i, i + 500)]);
+        }
+        await connection.commit();
+
+        res.status(201).json({ added: result.showings.length, problems: result.problems });
+    } catch (error) {
+        if (connection) {
+            await connection.rollback();
+        }
+        console.error('CSV showings error:', error);
+        res.status(500).json({ error: 'Could not add the showtimes from the file' });
+    } finally {
+        if (connection) connection.release();
     }
 });
 
@@ -541,17 +476,11 @@ app.post('/api/purchase', async (req, res) => {
     if (!Number.isSafeInteger(showingId) || showingId < 1) {
         return res.status(400).json({ error: 'A valid showing is required' });
     }
-    if (!paymentMethod || paymentMethod.length > 45) {
-        return res.status(400).json({ error: 'Payment method is required and must be 45 characters or fewer' });
-    }
 
     let connection;
-    let transactionStarted = false;
 
     try {
         connection = await pool.getConnection();
-        await connection.beginTransaction();
-        transactionStarted = true;
         const [showings] = await connection.execute(
             'SELECT showing.movie_id, COALESCE(formats.price, 1) AS price FROM showing LEFT JOIN formats ON formats.format_id = showing.formats_id WHERE showing_id = ?',
             [showingId]
@@ -621,19 +550,10 @@ app.post('/api/purchase', async (req, res) => {
         );
         res.json({ ticketId, receiptUrl: charge.receipt_url, message: 'Purchase successful' });
     } catch (error) {
-        if (connection && transactionStarted) {
-            await connection.rollback();
-            transactionStarted = false;
-        }
         console.error('Purchase error:', error);
         res.status(500).json({ error: 'Purchase failed' });
     } finally {
-        if (connection) {
-            if (transactionStarted) {
-                await connection.rollback();
-            }
-            connection.release();
-        }
+        if (connection) connection.release();
     }
 });
 
@@ -857,7 +777,8 @@ app.put('/api/account/:id', async (req, res) => {
         updates.push('password = ?');
         values.push(hashPassword(password));
     }
-    let theaterIdIndex = -1;
+    // users stores the theater by name, so the name gets filled in once we look it up below
+    let theaterNameIndex = -1;
     if (req.body.theaterId !== undefined) {
         const rawTheaterId = req.body.theaterId;
         if (rawTheaterId === null || rawTheaterId === '') {
@@ -869,7 +790,7 @@ app.put('/api/account/:id', async (req, res) => {
                 return res.status(400).json({ error: 'Theater id must be a positive number or null' });
             }
             updates.push('theater_name = ?');
-            theaterIdIndex = values.length;
+            theaterNameIndex = values.length;
             values.push(null);
         }
     }
@@ -893,7 +814,7 @@ app.put('/api/account/:id', async (req, res) => {
                 return res.status(409).json({ error: 'An account with that email already exists' });
             }
         }
-        if (theaterIdIndex !== -1) {
+        if (theaterNameIndex !== -1) {
             const [theaters] = await connection.execute(
                 'SELECT theater_name FROM theaters WHERE theater_id = ?',
                 [Number(req.body.theaterId)]
@@ -901,7 +822,7 @@ app.put('/api/account/:id', async (req, res) => {
             if ((theaters as any[]).length === 0) {
                 return res.status(400).json({ error: 'The selected theater does not exist' });
             }
-            values[theaterIdIndex] = (theaters as any[])[0].theater_name;
+            values[theaterNameIndex] = (theaters as any[])[0].theater_name;
         }
 
         values.push(accountId);
@@ -987,26 +908,7 @@ app.delete('/api/account/:id', async (req, res) => {
         connection = await pool.getConnection();
         await connection.beginTransaction();
         // Tickets point at the user, so those get removed first
-        const [purchaseRows] = await connection.execute(
-            'SELECT DISTINCT purchase_id FROM tickets WHERE user_id = ?',
-            [accountId]
-        );
         await connection.execute('DELETE FROM tickets WHERE user_id = ?', [accountId]);
-        const purchaseIds = (purchaseRows as any[]).map((row) => row.purchase_id);
-        if (purchaseIds.length > 0) {
-            const placeholders = purchaseIds.map(() => '?').join(', ');
-            await connection.execute(
-                `DELETE FROM purchases
-                 WHERE purchase_id IN (${placeholders})
-                   AND NOT EXISTS (
-                       SELECT 1 FROM tickets WHERE tickets.purchase_id = purchases.purchase_id
-                   )
-                   AND NOT EXISTS (
-                       SELECT 1 FROM formats WHERE formats.purchase_ids = purchases.purchase_id
-                   )`,
-                purchaseIds
-            );
-        }
         const [result] = await connection.execute('DELETE FROM users WHERE users_id = ?', [accountId]);
         if ((result as any).affectedRows === 0) {
             await connection.rollback();
@@ -1033,10 +935,6 @@ app.delete('/api/account/:id', async (req, res) => {
     }
 });
 
-if (require.main === module) {
-    app.listen(PORT, '0.0.0.0', () => {
-        console.log(`Server is running on port ${PORT}!`);
-    });
-}
-
-export { app };
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running on port ${PORT}!`);
+});

@@ -13,6 +13,16 @@ body {
     height: 100vh;
 }
 
+.homePoster {
+    margin-top: 20px;
+}
+
+.homePoster img {
+    width: 300px;
+    height: auto;
+    border-radius: 10px;
+}
+
 .form {
     display: flex;
     flex-direction: column;
@@ -85,54 +95,84 @@ body {
     padding: 16px;
 }
 
-.import-results {
-    max-width: 1000px;
-    margin: 20px auto;
+/* coded by Claude */
+.csvUpload {
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
     padding: 0 16px;
 }
 
-.import-table {
-    overflow-x: auto;
+.csvHelp {
+    max-width: 600px;
+    text-align: center;
+    margin: 0;
 }
 
-.import-table table {
+.form button.csvLink {
+    background: none;
+    color: #0645AD;
+    padding: 0;
+    text-decoration: underline;
+}
+
+.form button.csvLink:hover {
+    background: none;
+}
+
+.form button:disabled {
+    background-color: #888888;
+    cursor: default;
+}
+
+.csvError {
+    color: red;
+    font-weight: bold;
+    text-align: center;
+}
+
+.csvPreview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.csvProblems {
+    width: 100%;
+    background-color: #FFF4E5;
+    border: 1px solid #F0B75A;
+    border-radius: 5px;
+    padding: 10px;
+    box-sizing: border-box;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.csvProblems ul {
+    margin: 5px 0 0;
+}
+
+.csvTable {
     width: 100%;
     border-collapse: collapse;
+    background-color: #FFFFFF;
+    font-size: 14px;
 }
 
-.import-table th,
-.import-table td {
-    border: 1px solid #bbb;
-    padding: 8px;
+.csvTable th,
+.csvTable td {
+    border: 1px solid #CCCCCC;
+    padding: 4px 8px;
     text-align: left;
 }
 
-.ticket {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    border-top: 1px solid #000000;
-    border-bottom: 1px solid #000000;
-    height: 250px;
-}
-
-.ticketPoster {
-    height: auto;
-    border-radius: 5px;
-    align-items: center;
-}
-
-.ticketPoster img {
-    width: auto;
-    height: 240px;
-    border-radius: 5px;
-}
-
-.barcodeButton {
-    margin-left: auto;
-    border-radius: 5px;
-    padding: 8px 16px;
+.csvTable th {
     background-color: #000000;
     color: #FFFFFF;
-    text-decoration: none;
+}
+
+.csvGuess {
+    background-color: #FFFBE6;
 }
