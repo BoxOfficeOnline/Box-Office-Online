@@ -4,6 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
 import crypto from 'crypto';
+import { ImportInputError, ImportServiceError, parseShowtimeCsv, validateRows, type ValidRow } from './showtimeImport';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -54,6 +55,7 @@ testConnection();
 
 // Remembers who is logged in until the server restarts
 const sessions = new Map<string, { userId: number }>();
+const showtimePreviews = new Map<string, { sessionToken: string; expires: number; rows: ValidRow[] }>();
 
 // password is only VARCHAR(45), so the hash has to stay short enough to fit
 function hashPassword(password: string): string {
@@ -270,6 +272,117 @@ app.get('/api/showings', async (_req, res) => {
     }
 });
 
+app.post('/api/showings/import/preview', async (req, res) => {
+    if (!await authorizeAdmin(req, res)) return;
+    const csv: unknown = req.body?.csv;
+    if (typeof csv !== 'string' || !csv.trim() || Buffer.byteLength(csv, 'utf8') > 1024 * 1024) {
+        return res.status(400).json({ error: 'Choose a non-empty CSV file no larger than 1 MB.' });
+    }
+
+    let connection;
+    try {
+        const rows = await parseShowtimeCsv(csv);
+        connection = await pool.getConnection();
+        const result = await validateRows(connection, rows);
+        let previewId: string | null = null;
+        if (result.valid.length) {
+            const now = Date.now();
+            showtimePreviews.forEach((preview, id) => {
+                if (preview.expires <= now || preview.sessionToken === readSessionToken(req)) {
+                    showtimePreviews.delete(id);
+                }
+            });
+            if (showtimePreviews.size >= 100) {
+                return res.status(503).json({ error: 'Too many pending previews. Try again later.' });
+            }
+            previewId = crypto.randomUUID();
+            showtimePreviews.set(previewId, {
+                sessionToken: readSessionToken(req)!,
+                expires: now + 15 * 60 * 1000,
+                rows: result.valid,
+            });
+        }
+        res.json({ previewId, ...result });
+    } catch (error) {
+        if (error instanceof ImportInputError) {
+            return res.status(400).json({ error: error.message });
+        }
+        if (error instanceof ImportServiceError) {
+            return res.status(503).json({ error: error.message });
+        }
+        console.error('Showtime import preview error:', error);
+        res.status(500).json({ error: 'Could not preview the CSV. Check the server logs.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+app.post('/api/showings/import', async (req, res) => {
+    if (!await authorizeAdmin(req, res)) return;
+    const previewId: unknown = req.body?.previewId;
+    if (typeof previewId !== 'string') {
+        return res.status(400).json({ error: 'The preview is invalid or expired. Upload the CSV again.' });
+    }
+    const preview = showtimePreviews.get(previewId);
+    if (!preview || preview.sessionToken !== readSessionToken(req) || preview.expires <= Date.now()) {
+        return res.status(400).json({ error: 'The preview is invalid or expired. Upload the CSV again.' });
+    }
+    showtimePreviews.delete(previewId);
+
+    let connection;
+    let locked = false;
+    let inTransaction = false;
+    try {
+        connection = await pool.getConnection();
+        const [lockRows] = await connection.query<mysql.RowDataPacket[]>(
+            "SELECT GET_LOCK('boxoffice_showtime_import', 10) AS acquired");
+        locked = lockRows[0]?.acquired === 1;
+        if (!locked) return res.status(503).json({ error: 'Another import is running. Preview the CSV again.' });
+        await connection.beginTransaction();
+        inTransaction = true;
+        const result = await validateRows(connection, preview.rows);
+        const approved = new Map(preview.rows.map((row) => [row.record, row]));
+        const unchanged: ValidRow[] = [];
+        for (const row of result.valid) {
+            const original = approved.get(row.record);
+            if (!original || original.movieId !== row.movieId || original.theaterId !== row.theaterId ||
+                original.formatId !== row.formatId || original.showtime !== row.showtime) {
+                result.invalid.push({ ...row, error: 'The matching database records changed since the preview.' });
+            } else {
+                unchanged.push(row);
+            }
+        }
+        const [maxRows] = await connection.query<mysql.RowDataPacket[]>(
+            'SELECT COALESCE(MAX(showing_id), 0) AS max_id FROM showing');
+        let nextId = Number(maxRows[0].max_id) + 1;
+        for (const row of unchanged) {
+            await connection.execute(
+                'INSERT INTO showing (showing_id, movie_id, showtime, theater_id, formats_id) VALUES (?, ?, ?, ?, ?)',
+                [nextId++, row.movieId, row.showtime, row.theaterId, row.formatId]);
+        }
+        await connection.commit();
+        inTransaction = false;
+        res.json({ imported: unchanged.length, invalid: result.invalid });
+    } catch (error) {
+        if (connection && inTransaction) await connection.rollback();
+        console.error('Showtime import error:', error);
+        res.status(500).json({ error: 'Could not import showtimes. Preview the CSV again.' });
+    } finally {
+        if (connection) {
+            if (locked) {
+                try {
+                    await connection.query("SELECT RELEASE_LOCK('boxoffice_showtime_import')");
+                } catch (error) {
+                    console.error('Could not release showtime import lock:', error);
+                    connection.destroy();
+                    return;
+                }
+            }
+            connection.release();
+        }
+    }
+});
+
 // Add movie endpoint (admins only)
 app.post('/api/movies', async (req, res) => {
     if (!await authorizeAdmin(req, res)) {
@@ -356,9 +469,14 @@ app.post('/api/showings', async (req, res) => {
     }
 
     let connection;
+    let locked = false;
 
     try {
         connection = await pool.getConnection();
+        const [lockRows] = await connection.query<mysql.RowDataPacket[]>(
+            "SELECT GET_LOCK('boxoffice_showtime_import', 10) AS acquired");
+        locked = lockRows[0]?.acquired === 1;
+        if (!locked) return res.status(503).json({ error: 'Another showtime operation is running. Try again.' });
 
         const [movies] = await connection.execute('SELECT movie_id FROM movies WHERE movie_id = ?', [movieId]);
         if ((movies as any[]).length === 0) {
@@ -386,7 +504,18 @@ app.post('/api/showings', async (req, res) => {
         console.error('Add showing error:', error);
         res.status(500).json({ error: 'Could not add the showing' });
     } finally {
-        if (connection) connection.release();
+        if (connection) {
+            if (locked) {
+                try {
+                    await connection.query("SELECT RELEASE_LOCK('boxoffice_showtime_import')");
+                } catch (error) {
+                    console.error('Could not release showtime lock:', error);
+                    connection.destroy();
+                    return;
+                }
+            }
+            connection.release();
+        }
     }
 });
 
@@ -876,6 +1005,10 @@ app.delete('/api/account/:id', async (req, res) => {
     }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server is running on port ${PORT}!`);
-});
+if (require.main === module) {
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Server is running on port ${PORT}!`);
+    });
+}
+
+export { app };

@@ -37,6 +37,15 @@ DB_NAME=boxofficedb
 
 The API defaults to port `5000`. `DB_PORT` defaults to `3306`; `DB_HOST`, `DB_USER`, and `DB_NAME` also have defaults in the server code. Set `DB_PASSWORD` to the password for your database user. Do not commit credentials.
 
+For the administrator CSV import, also configure an Anthropic API key and a Claude model available to your account on the API server:
+
+```dotenv
+ANTHROPIC_API_KEY=your_anthropic_api_key
+ANTHROPIC_MODEL=your_claude_model
+```
+
+Only CSV column headers are sent to Anthropic for column mapping; the CSV rows are parsed and checked on the server. An Anthropic account and API access are required. Never put the key in client code or commit it.
+
 Start the API and client in separate terminals:
 
 ```sh
@@ -66,6 +75,7 @@ Run these from the relevant directory:
 | `Server/` | `npm run dev` | Start the API with automatic restarts. |
 | `Server/` | `npm start` | Start the API with `ts-node`. |
 | `Server/` | `npm run build` | Compile the API TypeScript. |
+| `Server/` | `npm test` | Run showtime import tests. |
 | `Server/` | `npm run dev-all` | Start the API and client development servers together. |
 
 ## Client routes
@@ -83,6 +93,20 @@ Run these from the relevant directory:
 | `/tickets` | Account tickets |
 | `/logout` | Logout |
 | `/delete` | Delete account |
+| `/addshowtime` | Administrator movie and showtime management |
+
+## Import showtimes
+
+Sign in as an administrator and open the Admin Dashboard. Upload a UTF-8 CSV of up to 1 MB and 500 data records with these columns:
+
+```csv
+movie,datetime,theater,format
+Example Movie,2026-12-01 19:30,Main Theater,2D
+```
+
+Movie and theater values are existing names, not IDs; the format must already exist for that theater. Use `YYYY-MM-DD HH:MM` or `YYYY-MM-DD HH:MM:SS` for the theater's local time; timezone offsets and ambiguous date formats are not accepted. Standard quoted CSV fields are supported. Each name must match exactly one database record under the database's collation.
+
+The preview reports missing or ambiguous matches, invalid dates, and duplicate showtimes. The administrator must review and approve the valid rows; rejected rows are not imported. The server checks valid rows again at approval, reports any that became invalid, and inserts the remaining rows in one transaction. Validation cannot independently establish whether a schedule is correct, so review the source data. Previews expire after 15 minutes or a server restart.
 
 ## API overview
 
@@ -96,6 +120,8 @@ The API listens on `PORT` if provided, otherwise port `5000`.
 | `GET` | `/api/formats` | List ticket formats, optionally filtered by `theaterId`. |
 | `GET` | `/api/movies` | List movies. |
 | `GET` | `/api/showings` | List showtimes with movie, theater, and format details. |
+| `POST` | `/api/showings/import/preview` | Admin-only CSV parsing and validation; returns a short-lived preview. |
+| `POST` | `/api/showings/import` | Admin-only approval and transactional import of a preview's valid rows. |
 | `POST` | `/api/purchase` | Create a purchase and its associated ticket in one transaction. |
 | `POST` | `/api/validate` | Check whether a ticket ID exists. |
 | `POST` | `/api/account` | Create an account. |
