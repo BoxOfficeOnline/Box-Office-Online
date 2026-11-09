@@ -151,11 +151,13 @@ export default function AddShowtime() {
                 <input type="file" id="movie-poster" name="movie-poster" accept="image/*" required />
                 <button type="submit">Add Movie</button>
             </form>
+            {/* --- Not Ready For Testing ---
             <h1 style={{ textAlign: "center" }}>Add a Format</h1>
             <form className="form">
                 <input type="text" name="title" placeholder="Format Title" required />
                 <button type="submit">Add Format</button>
             </form>
+            */}
             <br/>
             <h1 style={{ textAlign: "center" }}>Add a Showtime</h1>
             <form className="form" onSubmit={handleShowtimeSubmit}>

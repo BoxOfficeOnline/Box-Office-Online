@@ -16,18 +16,32 @@ export type Account = {
 
 // Lets the navbar know someone logged in or out
 export const SESSION_EVENT = "sessionchange";
+export const THEATER_EVENT = "theaterchange";
 
 export function saveSession(token: string, accountId: number, adminPermission: boolean) {
     localStorage.setItem("token", token);
     localStorage.setItem("accountId", String(accountId));
     localStorage.setItem("adminPermission", String(adminPermission));
+    if (localStorage.getItem("selectedTheaterId") === null) {
+        localStorage.setItem("selectedTheaterId", "1")
+    }
     window.dispatchEvent(new Event(SESSION_EVENT));
+}
+
+export function getSelectedTheaterId() {
+    return localStorage.getItem("selectedTheaterId");
+}
+
+export function saveSelectedTheaterId(id: number) {
+    localStorage.setItem("selectedTheaterId", String(id))
+    window.dispatchEvent(new Event(THEATER_EVENT))
 }
 
 export function clearSession() {
     localStorage.removeItem("token");
     localStorage.removeItem("accountId");
     localStorage.removeItem("adminPermission");
+    localStorage.removeItem("selectedTheaterId");
     window.dispatchEvent(new Event(SESSION_EVENT));
 }
 

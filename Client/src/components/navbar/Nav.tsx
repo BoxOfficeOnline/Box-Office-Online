@@ -4,13 +4,34 @@ import '../App.css'
 import './navbar.css'
 import kuLogo from '../../assets/KULogo.svg';
 import logo from '../../assets/BOOLogo.png';
-import { accountFetch, clearSession, getAccountId, isAdmin, saveAdminPermission, SESSION_EVENT } from '../../accountApi.ts'
+import { accountFetch, clearSession, getAccountId, isAdmin, saveAdminPermission, SESSION_EVENT, THEATER_EVENT, saveSelectedTheaterId } from '../../accountApi.ts'
+
+type Theater = {
+    theater_id: number
+    theater_name: string
+    theater_location: string
+}
 
 function Nav() {
     const [loggedIn, setLoggedIn] = useState(Boolean(getAccountId()))
     const [admin, setAdmin] = useState(isAdmin())
+    const [theaters, setTheaters] = useState<Theater[]>([])
 
     useEffect(() => {
+        Promise.all([
+            accountFetch("/api/theaters"),
+        ])
+            .then(([theaterResult]) => {
+                if (!theaterResult.response.ok) {
+                    alert(theaterResult.data.error || "Could not load theaters.")
+                    return
+                }
+                setTheaters(theaterResult.data.theaters as Theater[])
+            })
+            .catch((error) => {
+                console.error("Navbar error:", error)
+                alert("Could not load navbar data. The server did not respond.")
+            })
         const update = () => {
             setLoggedIn(Boolean(getAccountId()))
             setAdmin(isAdmin())
@@ -45,13 +66,16 @@ function Nav() {
                 <Link to="/showtimes">
                     Showtimes
                 </Link>
-                <Link to="/account">
-                    Account test
-                </Link>
-            <details className="navAccountDropdown">
+            <details className="navAccountDropdown" style={{ alignSelf: 'center' }}>
                 <summary>Our Theaters</summary>
                 <div className="navAccountMenu">
-                    
+                    {theaters.map((theater) => (
+                        <button key={theater.theater_id} type="button"
+                            onClick={() => saveSelectedTheaterId(theater.theater_id)}
+                        >
+                            {theater.theater_name}
+                        </button>
+                    ))}
                 </div>
             </details>
             </div>
