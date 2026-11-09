@@ -62,6 +62,49 @@
     border: 1px solid #000000;
 }
 
+.navAccountDropdown > .navAccountMenu {
+    min-width: 100%;
+    box-sizing: border-box;
+}
+
+.navbar .navAccountMenu a {
+    display: block;
+}
+
+.navAccountMenu a,
+.navAccountMenu button {
+    color: #000000;
+    text-decoration: none;
+    font-size: 20px;
+    padding: 10px 20px;
+    background-color: #FFFFFF;
+    border: none;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+.navAccountMenu a:hover,
+.navAccountMenu button:hover {
+    background-color: #000000;
+    color: #FFFFFF;
+}
+
+.navAccountMenu :hover {
+    background-color: #000000;
+    color: #FFFFFF;
+}
+
+.navAccountMenu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    min-width: max-content;
+    background-color: #FFFFFF;
+    border: 1px solid #000000;
+}
+
 .navbar .navAccountMenu a {
     display: block;
 }

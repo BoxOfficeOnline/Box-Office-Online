@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import '../App.css'
 import './navbar.css'
 import kuLogo from '../../assets/KULogo.svg';
 import logo from '../../assets/BOOLogo.png';
-import { accountFetch, clearSession, getAccountId, isAdmin, saveAdminPermission, SESSION_EVENT, THEATER_EVENT, saveSelectedTheaterId } from '../../accountApi.ts'
+import { accountFetch, clearSession, getAccountId, isAdmin, saveAdminPermission, SESSION_EVENT, saveSelectedTheaterId } from '../../accountApi.ts'
 
 type Theater = {
     theater_id: number
@@ -16,6 +16,7 @@ function Nav() {
     const [loggedIn, setLoggedIn] = useState(Boolean(getAccountId()))
     const [admin, setAdmin] = useState(isAdmin())
     const [theaters, setTheaters] = useState<Theater[]>([])
+    const theaterDropdown = useRef<HTMLDetailsElement>(null)
 
     useEffect(() => {
         Promise.all([
@@ -37,7 +38,7 @@ function Nav() {
             setAdmin(isAdmin())
         }
         window.addEventListener(SESSION_EVENT, update)
-
+        
         // The server forgets logins when it restarts, so make sure the saved one still works
         const id = getAccountId()
         if (id) {
@@ -66,18 +67,23 @@ function Nav() {
                 <Link to="/showtimes">
                     Showtimes
                 </Link>
-            <details className="navAccountDropdown" style={{ alignSelf: 'center' }}>
-                <summary>Our Theaters</summary>
-                <div className="navAccountMenu">
-                    {theaters.map((theater) => (
-                        <button key={theater.theater_id} type="button"
-                            onClick={() => saveSelectedTheaterId(theater.theater_id)}
-                        >
-                            {theater.theater_name}
-                        </button>
-                    ))}
-                </div>
-            </details>
+                <details ref={theaterDropdown} className="navAccountDropdown" style={{ alignSelf: 'center' }}>
+                    <summary>Select a Box Office Online Theater</summary>
+                    <div className="navAccountMenu">
+                        {theaters.map((theater) => (
+                            <button key={theater.theater_id} type="button"
+                                onClick={() => {
+                                    saveSelectedTheaterId(theater.theater_id)
+                                    theaterDropdown.current?.removeAttribute("open")
+                                }}
+                            >
+                                {theater.theater_name}
+                            </button>
+                        ))}
+                    <button>button</button>
+                    <button>button</button>
+                    </div>
+                </details>
             </div>
             <div style={{ display: 'flex', marginLeft: 'auto' }}>
                 {!loggedIn ? (
@@ -90,7 +96,7 @@ function Nav() {
                         </Link>
                     </>
                 ) : (
-                    <details className="navAccountDropdown">
+                    <details className="navAccountMenu">
                         <summary>My Account</summary>
                         <div className="navAccountMenu">
                             <Link to="/account">
