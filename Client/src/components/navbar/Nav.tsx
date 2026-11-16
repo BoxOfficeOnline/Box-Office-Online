@@ -80,8 +80,6 @@ function Nav() {
                                 {theater.theater_name}
                             </button>
                         ))}
-                    <button>button</button>
-                    <button>button</button>
                     </div>
                 </details>
             </div>
