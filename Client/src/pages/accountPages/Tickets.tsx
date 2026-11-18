@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import "../../components/App.css"
+import "../../components/accountTickets.css"
 import { accountFetch, getAccountId } from "../../accountApi.ts"
 import { Link } from "react-router"
 import wallE from "../../assets/WALL-E.webp"
@@ -58,7 +59,7 @@ export default function Tickets() {
                             {ticket.showtime ? ` — ${new Date(ticket.showtime).toLocaleString()}` : ""}
                             {` — ${ticket.ticket_amount} ticket${ticket.ticket_amount === 1 ? "" : "s"}`}
                         </span>
-                        <Link className="barcodeButton" to={`/purchase/${ticket.ticket_id}`}>
+                        <Link className="barcodeButton" to={`/barcode/${ticket.ticket_id}`}>
                             View Barcode
                         </Link>
                     </div>
