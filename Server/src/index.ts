@@ -185,7 +185,8 @@ app.get('/api/barcode', async (req, res) => {
         text = '12345',         // The actual data we are encoding
         type = 'code128',       // Barcode type
         scale = 1,              // Scales the size of the barcode
-        height = 10,            // Height in mm
+        height = 10,  
+        width = 1,             // Width in mm
         includetext = 'yes',    // Shows the text below the bars
         textalign = 'center'
     } = req.query;
@@ -196,6 +197,7 @@ app.get('/api/barcode', async (req, res) => {
         text: text as string,
         scale: Number(scale),
         height: Number(height),
+        width: Number(width),
         includetext: includetext === 'yes',
         textxalign: textalign as any,
     })
