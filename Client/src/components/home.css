@@ -17,7 +17,8 @@
     flex-flow: row wrap;
     justify-content: center;
     width: 100%;
-    border: 10px solid #000000;
+    border-top: 10px solid #000000;
+    border-bottom: 10px solid #000000;
 }
 
 .nowShowing .moviePosters img {

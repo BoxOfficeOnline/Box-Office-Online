@@ -67,6 +67,9 @@ function Nav() {
                 <Link to="/showtimes">
                     Showtimes
                 </Link>
+                <Link to="/purchase">
+                    Barcode
+                </Link>
                 <details ref={theaterDropdown} className="navAccountDropdown" style={{ alignSelf: 'center' }}>
                     <summary>Select a Box Office Online Theater</summary>
                     <div className="navAccountMenu">
