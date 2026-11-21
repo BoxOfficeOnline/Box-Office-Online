@@ -46,7 +46,7 @@ ANTHROPIC_MODEL=your_claude_model
 
 Only CSV column headers are sent to Anthropic for column mapping; the CSV rows are parsed and checked on the server. An Anthropic account and API access are required. Never put the key in client code or commit it.
 
-For the deployed site, deploy the latest `Server/` code to the API service as well as the client, and set both variables in the API service's environment. The Azure Static Web App workflow deploys only the client. The server start command should run `npm start` from `Server/` (or `npm --prefix Server start` from the repository root); `Server/src/index.js` is an older entry point and does not provide the CSV import endpoints. After deployment, an unauthenticated `POST /api/showings/import/preview` should return 401, not 404. Restart or redeploy the API after changing its environment variables.
+For the deployed site, deploy the latest `Server/` code to the API service as well as the client, and set both variables in the API service's environment. The Azure Static Web App workflow deploys only the client. Set the API service's build command to `npm ci && npm run build` in `Server/`, and its start command to `npm start` in `Server/`. The build must include development dependencies for TypeScript type definitions. From the repository root, use `npm --prefix Server ci && npm --prefix Server run build` and `npm --prefix Server start` instead. Production runs compiled JavaScript rather than `ts-node` to reduce runtime memory use; `Server/src/index.js` is an older entry point and does not provide the CSV import endpoints. After deployment, an unauthenticated `POST /api/showings/import/preview` should return 401, not 404. Restart or redeploy the API after changing its environment variables.
 
 Start the API and client in separate terminals:
 
@@ -75,7 +75,7 @@ Run these from the relevant directory:
 | `Client/` | `npm run preview` | Preview the production build locally. |
 | `Client/` | `npm run lint` | Run ESLint. |
 | `Server/` | `npm run dev` | Start the API with automatic restarts. |
-| `Server/` | `npm start` | Start the API with `ts-node`. |
+| `Server/` | `npm start` | Start the compiled API (run `npm run build` first). |
 | `Server/` | `npm run build` | Compile the API TypeScript. |
 | `Server/` | `npm test` | Run showtime import tests. |
 | `Server/` | `npm run dev-all` | Start the API and client development servers together. |
@@ -143,3 +143,5 @@ The database script describes the current schema for a new database. It is not a
 ## Deployment notes
 
 The client includes Azure Static Web Apps configuration in `Client/staticwebapp.config.json`, including SPA fallback routing and a rewrite of `/api/*` requests to the deployed API. The client account API and some page actions also contain the deployed API URL directly; update those API targets when configuring a different deployment.
+
+If the API still runs out of memory after deploying the compiled build, check the service's memory limit and monitor Node heap and process memory over time alongside request traffic. The out-of-memory log alone does not identify a leak or the request that caused it. Memory-intensive paths include loading all movie posters in `/api/movies`; sessions are also kept in memory until logout, account deletion, or restart. Avoid collecting heap snapshots on a memory-constrained production instance, because generating one can require substantial additional memory.
