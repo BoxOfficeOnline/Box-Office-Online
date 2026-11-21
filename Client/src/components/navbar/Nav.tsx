@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import '../App.css'
 import './navbar.css'
 import kuLogo from '../../assets/KULogo.svg';
@@ -16,7 +16,8 @@ function Nav() {
     const [loggedIn, setLoggedIn] = useState(Boolean(getAccountId()))
     const [admin, setAdmin] = useState(isAdmin())
     const [theaters, setTheaters] = useState<Theater[]>([])
-    const theaterDropdown = useRef<HTMLDetailsElement>(null)
+    const [menuClosed, setMenuClosed] = useState(false)
+    const { pathname } = useLocation()
 
     useEffect(() => {
         Promise.all([
@@ -67,21 +68,20 @@ function Nav() {
                 <Link to="/showtimes">
                     Showtimes
                 </Link>
-                <details ref={theaterDropdown} className="navAccountDropdown" style={{ alignSelf: 'center' }}>
-                    <summary>Select a Box Office Online Theater</summary>
-                    <div className="navAccountMenu">
+                <div className={menuClosed ? "navAccountDropdown closed" : "navAccountDropdown"} style={{ alignSelf: 'center' }}
+                    hidden={pathname !== "/" && pathname !== "/showtimes"} onMouseLeave={() => setMenuClosed(false)}
+                >
+                    <span tabIndex={0}>Select a Box Office Online Theater</span>
+                    <div className="navAccountMenu" onClick={() => setMenuClosed(true)}>
                         {theaters.map((theater) => (
                             <button key={theater.theater_id} type="button"
-                                onClick={() => {
-                                    saveSelectedTheaterId(theater.theater_id)
-                                    theaterDropdown.current?.removeAttribute("open")
-                                }}
+                                onClick={() => saveSelectedTheaterId(theater.theater_id)}
                             >
                                 {theater.theater_name}
                             </button>
                         ))}
                     </div>
-                </details>
+                </div>
             </div>
             <div style={{ display: 'flex', marginLeft: 'auto' }}>
                 {!loggedIn ? (
@@ -94,9 +94,9 @@ function Nav() {
                         </Link>
                     </>
                 ) : (
-                    <details className="navAccountDropdown">
-                        <summary>My Account</summary>
-                        <div className="navAccountMenu">
+                    <div className={menuClosed ? "navAccountDropdown closed" : "navAccountDropdown"} onMouseLeave={() => setMenuClosed(false)}>
+                        <span tabIndex={0}>My Account</span>
+                        <div className="navAccountMenu" onClick={() => setMenuClosed(true)}>
                             <Link to="/account">
                                 Account Dashboard
                             </Link>
@@ -104,7 +104,7 @@ function Nav() {
                                 Log Out
                             </Link>
                         </div>
-                    </details>
+                    </div>
                 )}
             </div>
         </nav>

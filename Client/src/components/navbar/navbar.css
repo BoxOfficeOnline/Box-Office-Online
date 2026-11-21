@@ -34,19 +34,15 @@
     position: relative;
 }
 
-.navAccountDropdown summary {
+.navAccountDropdown > span {
+    display: block;
     cursor: pointer;
-    list-style: none;
     color: #000000;
     font-size: 20px;
     padding: 10px 20px;
 }
 
-.navAccountDropdown summary::-webkit-details-marker {
-    display: none;
-}
-
-.navAccountDropdown summary:hover {
+.navAccountDropdown:hover > span {
     background-color: #000000;
     color: #FFFFFF;
 }
@@ -63,8 +59,18 @@
 }
 
 .navAccountDropdown > .navAccountMenu {
+    display: none;
     min-width: 100%;
     box-sizing: border-box;
+}
+
+.navAccountDropdown:hover > .navAccountMenu,
+.navAccountDropdown:has(:focus-visible) > .navAccountMenu {
+    display: flex;
+}
+
+.navAccountDropdown.closed > .navAccountMenu {
+    display: none;
 }
 
 .navbar .navAccountMenu a {

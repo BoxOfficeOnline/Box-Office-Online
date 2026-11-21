@@ -11,6 +11,7 @@ const app = express();
 const PORT = Number(process.env.PORT) || 5000;
 
 dotenv.config();
+process.env.TZ = 'America/New_York';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET!);
 
