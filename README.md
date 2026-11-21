@@ -33,9 +33,10 @@ DB_PORT=3306
 DB_USER=your_mysql_user
 DB_PASSWORD=your_mysql_password
 DB_NAME=boxofficedb
+STRIPE_SECRET=your_stripe_secret_key
 ```
 
-The API defaults to port `5000`. `DB_PORT` defaults to `3306`; `DB_HOST`, `DB_USER`, and `DB_NAME` also have defaults in the server code. Set `DB_PASSWORD` to the password for your database user. Do not commit credentials.
+The API defaults to port `5000`. `DB_PORT` defaults to `3306`; `DB_HOST`, `DB_USER`, and `DB_NAME` also have defaults in the server code. Set `DB_PASSWORD` to the password for your database user. `STRIPE_SECRET` is required for server startup and Stripe Checkout; use a test key for local development. Do not commit credentials.
 
 For the administrator CSV import, also configure an Anthropic API key and a Claude model available to your account on the API server:
 
@@ -46,7 +47,7 @@ ANTHROPIC_MODEL=your_claude_model
 
 Only CSV column headers are sent to Anthropic for column mapping; the CSV rows are parsed and checked on the server. An Anthropic account and API access are required. Never put the key in client code or commit it.
 
-For the deployed site, deploy the latest `Server/` code to the API service as well as the client, and set both variables in the API service's environment. The Azure Static Web App workflow deploys only the client. Set the API service's build command to `npm ci && npm run build` in `Server/`, and its start command to `npm start` in `Server/`. The build must include development dependencies for TypeScript type definitions. From the repository root, use `npm --prefix Server ci && npm --prefix Server run build` and `npm --prefix Server start` instead. Production runs compiled JavaScript rather than `ts-node` to reduce runtime memory use; `Server/src/index.js` is an older entry point and does not provide the CSV import endpoints. After deployment, an unauthenticated `POST /api/showings/import/preview` should return 401, not 404. Restart or redeploy the API after changing its environment variables.
+For deployment, configure the database, Stripe, and (if using CSV import) Anthropic variables on the API service. See the Render settings below. The Azure Static Web App workflow deploys only the client.
 
 Start the API and client in separate terminals:
 
@@ -77,7 +78,7 @@ Run these from the relevant directory:
 | `Server/` | `npm run dev` | Start the API with automatic restarts. |
 | `Server/` | `npm start` | Start the compiled API (run `npm run build` first). |
 | `Server/` | `npm run build` | Compile the API TypeScript. |
-| `Server/` | `npm test` | Run showtime import tests. |
+| `Server/` | `npm test` | Run showtime import tests (requires `STRIPE_SECRET`; a test placeholder is sufficient). |
 | `Server/` | `npm run dev-all` | Start the API and client development servers together. |
 
 ## Client routes
@@ -86,7 +87,10 @@ Run these from the relevant directory:
 | --- | --- |
 | `/` | Home |
 | `/movies` | Ticket purchase form |
-| `/purchase/:ticketId` | Purchase confirmation and barcode |
+| `/showtimes` | Browse showtimes for the selected theater |
+| `/purchase?session_id=...` | Complete a Stripe purchase and display its barcode |
+| `/purchase/:ticketId` | Display a ticket barcode |
+| `/barcode/:ticketId` | Display an account ticket barcode |
 | `/scan` | Ticket validation |
 | `/login` | Login |
 | `/createAccount` | Account registration |
@@ -95,6 +99,7 @@ Run these from the relevant directory:
 | `/tickets` | Account tickets |
 | `/logout` | Logout |
 | `/delete` | Delete account |
+| `/admin` | Admin page |
 | `/addshowtime` | Administrator movie and showtime management |
 
 ## Import showtimes
@@ -119,14 +124,16 @@ The API listens on `PORT` if provided, otherwise port `5000`.
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | `GET` | `/` | API health response. |
-| `GET` | `/api/barcode` | Generate a PNG barcode; accepts `text`, `type`, `scale`, `height`, `includetext`, and `textalign` query parameters. |
+| `GET` | `/api/barcode` | Generate a PNG barcode; accepts `text`, `type`, `scale`, `height`, `width`, `includetext`, and `textalign` query parameters. |
 | `GET` | `/api/theaters` | List theaters for account assignment. |
 | `GET` | `/api/formats` | List ticket formats, optionally filtered by `theaterId`. |
 | `GET` | `/api/movies` | List movies. |
+| `POST` | `/api/movies` | Admin-only movie creation with a poster. |
 | `GET` | `/api/showings` | List showtimes with movie, theater, and format details. |
+| `POST` | `/api/showings` | Admin-only showtime creation. |
 | `POST` | `/api/showings/import/preview` | Admin-only CSV parsing and validation; returns a short-lived preview. |
 | `POST` | `/api/showings/import` | Admin-only approval and transactional import of a preview's valid rows. |
-| `POST` | `/api/purchase` | Create a purchase and its associated ticket in one transaction. |
+| `POST` | `/api/purchase` | Start Stripe Checkout, or finalize a paid session and create its ticket. |
 | `POST` | `/api/validate` | Check whether a ticket ID exists. |
 | `POST` | `/api/account` | Create an account. |
 | `POST` | `/api/login` | Log in and return an account and session token. |
@@ -141,6 +148,18 @@ Account-specific endpoints require a valid session for that account or an admini
 The database script describes the current schema for a new database. It is not a migration script; back up and migrate existing databases before applying schema changes. The showtime admin form requires formats to exist for each theater before showings can be added.
 
 ## Deployment notes
+
+For the API on Render, configure:
+
+| Setting | Value |
+| --- | --- |
+| Root Directory | `Server` |
+| Build Command | `npm ci --include=dev && npm run build` |
+| Start Command | `npm start` |
+
+The build needs development dependencies for TypeScript type definitions and must run before startup to create `Server/dist/index.js`. If the build command only installs packages, startup fails with `Cannot find module .../dist/index.js`. Production runs compiled JavaScript instead of `ts-node` to reduce runtime memory use; `Server/src/index.js` is an older entry point and does not provide the CSV import endpoints. From the repository root, the equivalent commands are `npm --prefix Server ci --include=dev && npm --prefix Server run build` and `npm --prefix Server start`.
+
+Deploy both the API and client after their respective changes. After an API deployment, an unauthenticated `POST /api/showings/import/preview` should return 401, not 404. Restart or redeploy the API after changing its environment variables.
 
 The client includes Azure Static Web Apps configuration in `Client/staticwebapp.config.json`, including SPA fallback routing and a rewrite of `/api/*` requests to the deployed API. The client account API and some page actions also contain the deployed API URL directly; update those API targets when configuring a different deployment.
 
