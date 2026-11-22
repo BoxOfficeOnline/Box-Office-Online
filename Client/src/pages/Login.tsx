@@ -1,8 +1,10 @@
 import type { SyntheticEvent } from "react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { accountFetch, saveSession } from "../accountApi.ts";
 
 export default function Login() {
+    const navigate = useNavigate();
     const [message, setMessage] = useState("");
     const [ok, setOk] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -24,6 +26,7 @@ export default function Login() {
                 saveSession(data.token, data.account.id, data.account.adminPermission);
                 setOk(true);
                 setMessage("Logged in.");
+                setTimeout(() => navigate("/"), 1000);
             } else {
                 setOk(false);
                 setMessage(data.error || "Login failed.");
