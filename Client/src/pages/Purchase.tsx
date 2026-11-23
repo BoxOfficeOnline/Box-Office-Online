@@ -31,7 +31,7 @@ export default function Purchase() {
             {purchase.error && <div className="invalid">{purchase.error}</div>}
             {purchase.receiptUrl && <a href={purchase.receiptUrl} target="_blank">View your receipt</a>}
             <div>
-                <Barcode value={purchase.ticketId || '1'} displayValue={false} width={5} />
+                <Barcode value={purchase.ticketId || '1'} displayValue={false} width={1} />
             </div>
         </div>
         </>
