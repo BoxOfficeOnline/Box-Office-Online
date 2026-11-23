@@ -11,7 +11,7 @@ export default function BarcodeDisplay() {
                 Thank you for your purchase!
             </div>
             <div>
-                <Barcode value={ticketId || '1'} displayValue={false} width={5} />
+                <Barcode value={ticketId || '1'} displayValue={false} width={1} />
             </div>
         </div>
         </>
